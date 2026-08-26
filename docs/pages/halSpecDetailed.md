@@ -964,6 +964,65 @@ cells carry both values, labelled per variant, rather than a single merged value
 
 89 definition keys in this group - 51 defined in `telcovoice_hal_schema_v1.json`, 46 in `telcovoice_hal_schema_v2.json`.
 
+**Capability reporting is an inventory, not an approval.** Every enumeration in the rows below is
+reproduced exactly as the shipped schema declares it, because a capability parameter states what this
+data model is able to express and what a vendor claims to support. It is neither a security approval
+nor a recommended configuration, and this document endorses none of the members it reports. The
+schema constrains the syntax of the reported list and nothing else, so a reader who takes this
+section as negotiation guidance applies the constraints below to the reported set before configuring
+anything.
+
+- **Members that must not be selected for a new production configuration:** `Null`, `MD5`, `SHA-1`,
+  `RC4`, `RC2`, `DES`, `3DES` and `Static` SRTP keying. `Null` provides no confidentiality and no
+  integrity at all, so a reported `Null` member states only that the interface is able to express an
+  unprotected channel, never that one is acceptable. The rest are broken or deprecated for new
+  protection: `RC4` is prohibited in TLS by RFC 7465; `RC2` was never an approved algorithm and its
+  64-bit block and legacy key sizes place it outside current use; `MD5` and HMAC-MD5 carry the
+  collision and preimage weaknesses set out in RFC 6151; `SHA-1` is deprecated for TLS by RFC 9155
+  and, in the initial public draft of NIST SP 800-131A Rev. 3, scheduled for retirement after
+  December 31, 2030; and `DES` and `3DES` are disallowed for new protection by NIST SP 800-131A
+  Rev. 2, the current final revision, with `3DES` additionally carrying
+  the birthday limit of a 64-bit block. `Static` SRTP keying pins one pre-provisioned master key
+  with no per-session freshness and no forward secrecy, so a single disclosure exposes every session
+  the device has protected and every session it will protect. These enumerations name algorithms
+  rather than protocol versions; the TLS versions that carried the legacy members are themselves
+  deprecated by RFC 8996, so a deployment negotiates TLS 1.2 or later irrespective of what any
+  capability list is able to report.
+- **What a deployment selects where `v2` offers it:** `AEAD`, or `SHA-2` where no `AEAD` suite is
+  available, in
+  `Device.Services.VoiceService.{i}.Capabilities.SIP.Client.TLSAuthenticationProtocols` and
+  `Device.Services.VoiceService.{i}.Capabilities.SIP.Registrar.TLSAuthenticationProtocols`; `AES` or
+  `Camellia` in `Device.Services.VoiceService.{i}.Capabilities.SIP.Client.TLSEncryptionProtocols` and
+  `Device.Services.VoiceService.{i}.Capabilities.SIP.Registrar.TLSEncryptionProtocols`; and
+  `ECDHE-RSA` or `ECDHE-ECDSA` in
+  `Device.Services.VoiceService.{i}.Capabilities.SIP.Client.TLSKeyExchangeProtocols` and
+  `Device.Services.VoiceService.{i}.Capabilities.SIP.Registrar.TLSKeyExchangeProtocols`. Of the
+  remaining key-exchange members, `RSA` and `DSS` establish no forward secrecy at all, and `DHE-RSA`
+  and `DHE-DSS` establish it only over finite-field groups whose commonly deployed parameter sizes
+  are no longer adequate.
+- **`v1` cannot express a compliant suite through this contract.** In
+  `telcovoice_hal_schema_v1.json` all three TLS enumerations are legacy-only:
+  `Device.Services.VoiceService.{i}.Capabilities.SIP.TLSEncryptionProtocols` admits `Null`, `RC4`,
+  `RC2`, `DES` and `3DES` and no modern cipher;
+  `Device.Services.VoiceService.{i}.Capabilities.SIP.TLSAuthenticationProtocols` admits `Null`, `MD5`
+  and `SHA-1` and no modern digest; and
+  `Device.Services.VoiceService.{i}.Capabilities.SIP.TLSKeyExchangeProtocols` admits `RSA` and `DSS`
+  and no forward-secret exchange. Every value a `v1` server is permitted to report is therefore one
+  of the members prohibited above, and **a `v1` deployment cannot express a compliant suite through
+  this contract at all**. Securing such a deployment requires moving to the `v2` data model, or an
+  implementation upgrade that serves the `v2` enumerations, or an external security policy that
+  constrains what the vendor actually negotiates irrespective of what the capability list is able to
+  report. `Device.Services.VoiceService.{i}.Capabilities.SRTPKeyingMethods` is bounded the same way:
+  its members are `Null`, `Static`, `SDP` and `IKE`, of which `SDP` protects the media key only when
+  the signalling path that carries it is itself protected, and `IKE` is the one member that
+  establishes media keys in its own authenticated exchange.
+- **`H.235` authentication methods.**
+  `Device.Services.VoiceService.{i}.Capabilities.H323.H235AuthenticationMethods` reports the same six
+  members in both variants. `dhExch` on its own is an unauthenticated Diffie-Hellman exchange and is
+  defeated by an in-path attacker, and `pwdSymEnc` and `pwdHash` rest on a shared password and on the
+  legacy digest the `H.235` baseline profile carries. A deployment relies on `certSign`, `tls` or
+  `ipsec`, which bind the peer to a certificate or place the signalling inside a protected transport.
+
 | TR-181 Parameter | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.Capabilities.ButtonMap`<br>`voiceServiceCapabilitiesButtonMap`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterSupportedList`) | Support for a configurable button map. |

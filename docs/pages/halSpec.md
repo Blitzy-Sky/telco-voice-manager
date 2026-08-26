@@ -278,10 +278,10 @@ evidence rather than deferred to the library. All line references in this topic 
 `json-hal-library` revision cited in `Build Requirements`.
 `json_hal_client_run()` calls `json_rpc_client_run()`, which creates **one** detached thread
 running the socket state machine [`tcp_client.c:81-97`]. That thread's receive state calls the
-library's parse callback [`tcp_client.c:233-234`], which is `response_parse_cb`
-[`json_hal_client.c:211`, defined at `:335`], and it is that function which invokes a registered
+library's internal parse callback [`tcp_client.c:233-234`], installed at
+[`json_hal_client.c:211`] and defined at [`:335`], and it is that callback which invokes a registered
 event callback [`json_hal_client.c:440`]. The same loop also drives the request-timeout ticker
-[`tcp_client.c:251-254` calling `request_idle_cb` at `json_hal_client.c:227-232`]. So one thread
+[`tcp_client.c:251-254` calling the internal idle callback at `json_hal_client.c:227-232`]. So one thread
 delivers every reply, every event and every timeout, and while it is inside a caller's callback it
 is doing none of those three things.
 
@@ -966,6 +966,25 @@ minimum**; its upstream native build, however, is exercised against the **`json-
 revision. An integrator who reads only the first will under-provision relative to what upstream
 actually tests; one who reads only the second will over-state what the library requires. Both
 numbers are therefore given here, each labelled with what it is.
+
+**Neither number is a security recommendation, and unpatched upstream `json-c 0.11` must not be
+deployed in production.** The `0.11` above is a historical attribution of what the transport library
+declares, not guidance on what a deployment should build against. Unpatched upstream `json-c 0.11`
+is affected by `CVE-2013-6370`, a buffer overflow; `CVE-2013-6371`, a hash-collision denial of
+service; and `CVE-2020-12762`, an integer overflow leading to an out-of-bounds write, scored CVSS
+v3.1 7.8 HIGH (`AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H`) by NVD and fixed in `json-c 0.15`. That `AV:L`
+vector is consistent with how this interface is reached: the transport is loopback-only, with
+`SERVER_HOST` defined as `127.0.0.1` [`tcp_client.h:33`], applied at [`json_hal_client.c:207`], and
+the server binding `127.0.0.1` [`tcp_server.c:144-146`]. The exposure is therefore a hostile or
+malfunctioning local peer on the loopback socket, not a remote network attacker. It is nonetheless
+concrete rather than theoretical, because this dependency sits on the peer-facing parse path: the transport hands bytes read off the
+HAL socket to `json_tokener_parse_ex()` and `json_tokener_parse()` before any of the validation this
+specification describes takes place, so a malformed or hostile message reaches the parser first. A
+production deployment therefore links either a distribution build of `json-c` that carries backports
+of those fixes, or a maintained upstream release at `0.15` or later — `0.15` is where the
+out-of-bounds write was corrected, and current upstream is `0.19`. A vendor that must build against
+`0.11` for compatibility with an existing platform treats the backport of these three fixes as a
+release condition, not as an optional hardening step.
 
 **Build-time selection.** Which data model the manager is compiled against is a build decision, not
 a runtime one. `Variability Management` and
