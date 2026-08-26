@@ -15,11 +15,17 @@ to misread it. They are listed separately here, each with the artefact that esta
 | Document revision | `1.0.0` | The table above. Applies to this specification only. |
 | HAL schema version | `0.0.1` | `definitions.schemaVersion.const`, identical in both shipped schemas. Travels in the envelope's `version` field. The schema states that the value must not be modified and that HAL operation cannot be performed without the correct supported version. |
 | Release tag | `v2.0.5` | The repository's most recent tag, dated 2026-05-18 in `CHANGELOG.md`, which also records `v2.0.4`, `v2.0.3`, `v2.0.2`, `v2.0.1` and `v2.0.0`. |
-| Generated-site version string | `v2.0.5` | `git describe --tags`, which `docs/generate_docs.sh` passes to the documentation generator as `PROJECT_VERSION`. |
+| Generated-site version string | Computed at build time, not fixed | `docs/generate_docs.sh` runs `git describe --tags` and passes the result to the documentation generator as `PROJECT_VERSION`. |
 
-Two consequences follow. At this revision `git describe --tags` resolves to a clean `v2.0.5` with
-no commit suffix, so the release tag and the generated-site string coincide; a string of the form
-`v2.0.5-1-gb1c4d13` denotes commits past a tag rather than a release, and is never a version.
+Two consequences follow. The generated-site string is **not** a version identity this document can
+quote, because it is derived from the checkout at the moment the site is built: on a tagged commit
+`git describe --tags` yields the bare tag, and on any commit after one it yields
+`<tag>-<commits-since-tag>-g<abbreviated-hash>`. That longer form denotes a position in history
+rather than a release, so it never names a version, and no literal value of it is reproduced here —
+any such literal would be stale by the next commit, including the commit that recorded it. A reader
+who needs the value for a particular build reads it from that build's `PROJECT_VERSION`, or runs
+`git describe --tags` in the checkout the site was generated from.
+
 And the `v1` and `v2` in the schema filenames are **not** schema versions — both files declare
 `schemaVersion` `0.0.1`. They distinguish the two shipped data-model variants, as
 `Optional Components` sets out.
@@ -87,15 +93,35 @@ which the manager runs; unlike most C HALs in this bundle, no separate middlewar
 between the `RDK-B` stack and this interface, because the manager is itself the owning service.
 
 The data model is a Broadband Forum model, and this document cites it in two parts because it is
-assembled from two Technical Reports. The `Device.Services.` container comes from the root
-[`Device:2` model, defined by `TR-181` Issue 2](https://device-data-model.broadband-forum.org/);
+assembled from two Technical Reports. Each citation names a **specific published model version**
+rather than a documentation site, so that a reader checking a definition lands on the same text this
+document was written against. The `Device.Services.` container comes from the root `Device:2` model
+of `TR-181`, whose published definition of that container is
+[`Device.Services.` in `Device:2.21`](https://cwmp-data-models.broadband-forum.org/tr-181-2-21-0-cwmp.html#D.Device:2.Device.Services.).
 `VoiceService` is a *service* data model that plugs into that container, defined by
-[`TR-104`](https://cwmp-data-models.broadband-forum.org/). The `v2` schema corresponds to
-[`VoiceService:2`, `TR-104` Issue 2, model file `tr-104-2-0-0`](https://cwmp-data-models.broadband-forum.org/tr-104-2-0-0.html)
-and the `v1` schema to
-[`VoiceService:1`, `TR-104` Issue 1](https://cwmp-data-models.broadband-forum.org/tr-104-1-0-0.html).
-Neither shipped schema declares a data-model version, so that correspondence rests on matching
-object trees and datatypes rather than on a declared marker: `VoiceService:2` is the revision that
+[`TR-104`](https://cwmp-data-models.broadband-forum.org/). Neither shipped schema declares the
+revision it was authored against, so each was matched path by path against every published `TR-104`
+revision rather than assumed. The `v2` schema is the `VoiceService:2` model published as
+[tr-104-2-0-1-cwmp](https://cwmp-data-models.broadband-forum.org/tr-104-2-0-1-cwmp.html). The `v1`
+schema is `TR-104` Issue 1, whose earliest compatible publication is
+[tr-104-1-0-0](https://cwmp-data-models.broadband-forum.org/tr-104-1-0-0.html); the issue is
+established but the minor revision within it is not.
+
+Named as the publications name themselves, Issue 1 has two published revisions, `VoiceService:1.0`
+and `VoiceService:1.1`. Both define every non-vendor path the `v1` schema uses, the matched sets are
+identical between them, and nothing in that schema distinguishes one from the other, so this document
+writes `VoiceService:1.x` where it means either revision and claims no minor revision it cannot
+establish. The per-revision match counts are carried in
+[`halSpecDetailed.md`](halSpecDetailed.md).
+One limit on the first citation is stated rather than glossed: `Device:2.21` is cited
+because it is the published version whose `Device.Services.` definition was checked when this
+document was written, and **this repository records no `Device:2` amendment level**, so the citation
+identifies where the container is defined and does not claim these schemas were authored against that
+version.
+
+Neither shipped schema declares a data-model version either, so the `TR-104` correspondence above
+rests on matching object trees and datatypes rather than on a declared marker: `VoiceService:2.0` is
+the revision that
 introduced the `CallControl` and `Interwork` mapping objects, modelled each `VoIP` connection
 through `Client`, `Network` and `VoIPProfile` tables, and added `FXO`, `DECT`, `ISDN` and
 `SIP` proxy and registrar support — all of which are present in the `v2` schema and absent from
@@ -183,7 +209,22 @@ can satisfy. `API Surface` states the consequence.
 The client side of this interface is brought up in a fixed order by `TelcoVoiceMgrHal_Init()`
 [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:65`], which is invoked from
 [`telcovoicemgr_dml_apis.c:136`]. No `JSON` HAL request may be issued before this sequence
-completes successfully. The calls, in the order they must occur:
+completes successfully.
+
+**Where the three `json_hal_*` calls below come from, stated before they are used.** None
+of them belongs to this HAL contract. This interface declares no functions at all — its
+contract is the schema — and every `json_hal_*` name in this document is an entry point of
+the transport client library the manager links, `json-hal-library`, cited at the exact
+revision this workspace records for it:
+[`json-hal-library` at commit `86a0a300b976f8e3295064af8fb3fd1c793c9e64`](https://github.com/rdkcentral/json-hal-library/tree/86a0a300b976f8e3295064af8fb3fd1c793c9e64).
+All three are declared by
+[`json_hal_client.h`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_client.h)
+in that revision — `json_hal_client_init` at `:56`, `json_hal_client_run` at `:62` and
+`json_hal_is_client_connected` at `:134` — and that header, not this document, is their
+authority. `Build Requirements` records what the manager links and why the citation is
+pinned rather than floating.
+
+The calls, in the order they must occur:
 
 - `json_hal_client_init(TELCOVOICEMGR_CONF_FILE)` [`:68`] \- reads the client configuration from
   `/etc/rdk/conf/telcovoice_manager_conf.json` [`telcovoicemgr_dml_hal.h:98`], which supplies the
@@ -230,15 +271,52 @@ correcting either is a functional change with device consequences.
 after initialization a dedicated thread inside `json_hal_client` owns the socket and performs the
 receive loop. Asynchronous event callbacks registered through `json_hal_client_subscribe_event()`
 are therefore delivered on that library-owned thread and not on the thread that registered them.
-The authoritative description of that behaviour is the client library itself, cited in
-`Build Requirements` rather than restated here, so that the two cannot
-drift.
 
-**Caller obligation for callbacks.** Because an event callback arrives on a thread the caller does
-not own, any state the callback touches must be synchronized by the caller. The manager's own
-callback illustrates the pattern: it parses the event, resolves the affected voice service
-instance, and hands the result to the surrounding component rather than mutating shared state in
-place [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1286`].
+**There is exactly one such thread, and it is the thread every callback runs on.** This is the
+single most consequential threading fact about this interface, so it is stated here with its
+evidence rather than deferred to the library. All line references in this topic are to the pinned
+`json-hal-library` revision cited in `Build Requirements`.
+`json_hal_client_run()` calls `json_rpc_client_run()`, which creates **one** detached thread
+running the socket state machine [`tcp_client.c:81-97`]. That thread's receive state calls the
+library's parse callback [`tcp_client.c:233-234`], which is `response_parse_cb`
+[`json_hal_client.c:211`, defined at `:335`], and it is that function which invokes a registered
+event callback [`json_hal_client.c:440`]. The same loop also drives the request-timeout ticker
+[`tcp_client.c:251-254` calling `request_idle_cb` at `json_hal_client.c:227-232`]. So one thread
+delivers every reply, every event and every timeout, and while it is inside a caller's callback it
+is doing none of those three things.
+
+**The library's event-subscription lock is held for the duration of the callback.** The dispatch
+takes `gm_event_tracking_lock` before it walks the subscription list, invokes the callback inside
+that walk, and releases the lock only afterwards [`json_hal_client.c:427`, `:440`, `:472`]. The
+mutex is a plain, non-recursive one [`json_hal_client.c:93`]. A caller cannot observe this lock and
+cannot take it deliberately, but it constrains what a callback may do, and the obligations below
+state that constraint.
+
+**Caller obligations for callbacks. These are normative for this interface, and two of them prevent
+an unrecoverable hang rather than a race.**
+
+- **Do the minimum in the callback, and return.** For as long as the callback runs, no reply to any
+  outstanding request is delivered and no request timeout is counted, because the one thread that
+  would do either is executing the callback. Long or blocking work in a callback is therefore not a
+  latency cost to the callback alone — it stalls every concurrent HAL exchange in the process.
+- **Copy anything needed after the callback returns.** The buffer the callback is handed is not the
+  caller's to keep; see `Memory Model` for the lifetime and the reason.
+- **Never make a synchronous HAL call from inside a callback.** A send-and-reply call blocks on a
+  condition variable [`json_hal_client.c:683`] that only two code paths ever signal — the reply
+  dispatch [`json_hal_client.c:508`] and the timeout ticker [`json_hal_client.c:548`] — and both run
+  on the thread now sitting inside the callback. The wait is therefore never satisfied and never
+  times out: the call does not fail slowly, it does not return at all. A callback that needs to read
+  or write a parameter must hand the work to a thread of the caller's own and return.
+- **Never register or re-register a subscription from inside a callback.**
+  `json_hal_client_subscribe_event()` takes `gm_event_tracking_lock`
+  [`json_hal_client.c:741`] — the same non-recursive mutex the dispatch already holds — so the call
+  self-deadlocks. `json_hal_client_terminate()` takes it too [`json_hal_client.c:798`], so tearing
+  the client down from inside a callback deadlocks for the same reason.
+- **Synchronize any state the callback touches.** Because the callback arrives on a thread the
+  caller does not own, shared state it reads or writes needs the caller's own synchronization. The
+  manager's own callback illustrates the pattern: it parses the event, resolves the affected voice
+  service instance, and hands the result to the surrounding component rather than mutating shared
+  state in place [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1286`].
 
 **Concurrent request submission is not specified by this interface.** Nothing in the schemas, the
 client configuration or the manager source states whether two threads may issue requests
@@ -316,17 +394,46 @@ decrements the reference count rather than freeing unconditionally.
 - **Do not retain a value extracted from a reply beyond the reply's lifetime.** Values read out of
   a reply must be copied into caller-owned storage before the reply handle is released; a pointer
   into a released `JSON` document is not valid afterwards.
-- **Bound what is sent.** A single message must fit the transport's receive buffer, which is
-  16384 bytes; the transport reassembles a message that arrives across several reads, but it does
-  not negotiate a larger buffer. Callers batching many parameters into one `params` array should
-  size the batch with that limit in mind.
+- **An event callback's buffer is borrowed, and it is borrowed only until the callback returns.**
+  This is the one lifetime on the event path, and it is not the same as the reply-handle lifetime
+  above. The library does not hand the callback a copy: it serializes the live `json_object` it is
+  currently dispatching and passes the pointer that serialization returns
+  [`json_hal_client.c:435`, `:440`], and that `json_object` — parsed a few lines earlier from the
+  receive buffer [`json_hal_client.c:364`] — is released as soon as the dispatch loop finishes with
+  it [`json_hal_client.c:516`]. The buffer belongs to the object, so releasing the object
+  invalidates the buffer. A callback must therefore **copy every byte it will still need into
+  caller-owned storage before it returns**, including the event name and the value it carries, and
+  must never store the pointer, hand it to another thread, place it in a queue or keep a substring
+  of it. Reading it after return is a use-after-free, not a stale-but-readable value. The buffer is
+  also not the caller's to release: the callback must not call `json_object_put()` or `free()` on
+  it. The accompanying length argument describes the borrowed buffer and is likewise only valid for
+  the duration of the call.
+- **Bound what is sent. The size limit applies to a request and not to a reply, and the asymmetry is
+  a property of the transport rather than of the protocol.** `MAX_BUFFER_SIZE` is 16384 bytes in the
+  pinned transport revision cited in `Build Requirements`
+  [`json-rpc-common/json_rpc_common.h:87`], and the two sides of the socket use it differently:
+  - **A request must fit 16384 bytes.** The server receives into a single fixed buffer
+    [`tcp_server.c:106`], performs one `recv` into it [`:219`], and hands exactly what that call
+    returned to its message handler [`:260`]. Nothing on the server side accumulates across reads, so
+    a request larger than the buffer does not arrive as one document — it arrives as fragments, none
+    of which parses as a complete message. A caller batching many parameters into one `params` array
+    must split the batch itself; the transport will not do it.
+  - **A reply is not capped at one buffer.** The client reads in 16384-byte chunks, and whenever a
+    read fills the buffer it appends the chunk to a heap accumulator grown by `realloc` and reads
+    again, handing the reassembled document to the parse callback only once a short read completes it
+    [`tcp_client.c:188-212`, dispatch at `:234`]. A reply spanning several chunks is therefore
+    delivered whole, and neither the schemas nor the transport states a ceiling on its size. A caller
+    must not reject a large `getParametersResponse` on size grounds and must not assume a bound the
+    transport does not impose; the practical limit is the memory the accumulation consumes.
 - **Do not reuse a request handle across two sends.** Each request carries its own request
   identifier, and correlation depends on that identifier being unique to one exchange.
 
 #### Module Responsibilities
 
-- The client library owns the socket buffer and the reassembly of a message that spans multiple
-  reads. A caller never sees a partial document.
+- The client library owns the receive buffer on the reply path and the reassembly of a reply that
+  spans multiple reads [`tcp_client.c:188-212`]. A caller never sees a partial document. The server
+  side of the transport provides no equivalent reassembly, which is why the bound above applies to
+  the request direction only.
 - The library populates the reply handle only when it has a complete, parsed document, and it
   transfers that handle to the caller, who becomes responsible for releasing it.
 - The vendor server owns everything on its side of the socket. It must not assume that a client
@@ -361,10 +468,27 @@ sequenced by the component that owns the power event, not by this HAL.
 ### Asynchronous Notification Model
 
 Asynchronous delivery uses two actions. The client registers interest with `subscribeEvent`, which
-requires a parameter `name` and a `notificationType` and is acknowledged by a `result`. The server
-subsequently sends `publishEvent` messages, unsolicited, each carrying the parameter `name`, its
-`type` and its `value`. `getActiveSubscriptions` enumerates what is currently registered, answered
-by `getActiveSubscriptionsResponse`.
+requires a parameter `name` and a `notificationType` and is acknowledged by a `result` — an
+acknowledgement the client library's subscribe call does not expose to the caller, for the reason
+`Internal Error Handling` gives, so a successful subscribe call is not evidence
+of an accepted subscription. The server subsequently sends `publishEvent` messages, unsolicited,
+each carrying the parameter `name`, its `type` and its `value`.
+
+**A third and fourth action nominally exist for enumerating subscriptions, and neither is usable as
+an enumeration.** `getActiveSubscriptions` and `getActiveSubscriptionsResponse` are members of the
+`action` enumeration in both shipped schemas, so a server must be able to parse them and this
+document names them for that reason. But **no `allOf` branch binds a payload to either**: the schema
+defines no subscription list, no array, no object and no member of any kind for the response, so the
+four envelope fields are the whole of what it specifies. Nor does the transport help — the client
+library declares no entry point that issues this action or reads such a list, and the subscription
+list it does keep is process-local to the client rather than something it queries from the server.
+Two consequences follow, and a test author in particular should not assert past them: whatever a
+server returns beyond the envelope is **undefined by this contract and vendor-specific**, and
+because the schemas set no `additionalProperties: false` at the top level, an arbitrary extra member
+still validates — so validation success says nothing about whether a subscription list is present or
+what shape it has. A caller that needs to know what it is subscribed to must track its own
+subscriptions. [`halSpecDetailed.md`](halSpecDetailed.md) carries the bare-envelope exchange and the
+same statement beside it.
 
 **The four notification types, and the two that are specific to this HAL.** The schema's
 `notificationType` enumeration is `interval`, `onChange`, `onChangeSync` and `onChangeSyncTimeout`,
@@ -389,9 +513,19 @@ address to an `IPv4` or `IPv6` literal, with the exact validating expression giv
 event by matching the event name and applying the rules for the affected voice service instance
 [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1286`].
 
-**Threading.** Event callbacks are delivered on the client library's socket thread, not on the
-registering thread; see `Threading Model` for the synchronization that
-obligates.
+**Threading, and the two things a callback must never do.** Event callbacks are delivered on the
+client library's single socket thread, not on the registering thread, and the library holds its
+subscription lock for the whole of the call [`json_hal_client.c:427`, `:440`, `:472`]. Two
+consequences bind every caller and neither is recoverable at runtime: a **synchronous HAL call**
+made from inside a callback waits on a signal that only the now-blocked thread can send
+[`json_hal_client.c:683`, signalled at `:508` and `:548`], and **subscribing, re-subscribing or
+terminating the client** from inside a callback retakes the non-recursive lock the dispatch already
+holds [`json_hal_client.c:741`, `:798`]. Both hang the process's entire HAL exchange. The buffer the
+callback receives is borrowed from the library's live `JSON` object and is invalid the moment the
+callback returns, so anything still needed must be copied first. `Threading Model` and
+`Memory Model` state each of these as an obligation with its evidence, and
+[`halSpecDetailed.md`](halSpecDetailed.md) repeats the contract beside the event messages it
+governs.
 
 **Vendor obligation.** A server must accept a subscription for the supported parameter, acknowledge
 it with a `result`, and thereafter publish on change. It must not publish an event for a parameter
@@ -414,22 +548,31 @@ used at **nine** call sites, always with `HAL_SEND_AND_REPLY_TIMEOUT`, which is 
 [`telcovoicemgr_dml_hal.c:231`, `:268`, `:302`, `:625`, `:721`, `:783`, `:835`, `:900`, `:963`] —
 and the untimed form at exactly **one**, [`:1027`], for ten send-and-reply call sites in total.
 
-**The requested timeout is clamped, and the floor is the part that surprises callers.** The library
-counts its wait in 250-millisecond ticks. A requested timeout is converted to ticks and then bounded
-at both ends: it is raised to a **floor of approximately 10 seconds** if a shorter value is
-requested, and capped at **120 seconds** if a longer one is. The practical consequences are worth
-stating plainly:
+**The requested timeout is clamped, it is counted in ticks rather than in seconds, and the floor is
+the part that surprises callers.** A requested timeout is converted to a whole number of ticks and
+bounded at both ends: raised to a **floor of 40 ticks** if a shorter value is requested, and capped
+at **480 ticks** if a longer one is. A tick is one pass of the library's receive loop, whose `select`
+waits *up to* 250 milliseconds, so those two bounds are **nominally about 10 seconds and about 120
+seconds** — the figures the library's own comments give them — rather than elapsed-time guarantees.
+The mapping is approximate in both directions: a busy connection completes passes faster than four
+per second and spends the budget sooner, while a reply large enough to need more than one read
+suspends the countdown until reassembly finishes. `Memory and performance requirements` sets out why,
+and [`halSpecDetailed.md`](halSpecDetailed.md) gives the source lines under
+*Transport and Protocol*. The practical
+consequences are worth stating plainly:
 
 | Requested wait | Effective wait | Why |
 | --- | --- | --- |
-| Under 10 seconds | approximately 10 seconds | Raised to the library's tick floor. A short timeout is not honoured. |
-| The manager's 60 seconds | 60 seconds | Between the floor and the cap, so used as requested. |
-| Over 120 seconds | 120 seconds | Reduced to the library's cap. |
-| The untimed form | approximately 10 seconds | The untimed form uses the floor value as its wait, so it is the *shortest*-waiting form, not the longest. |
+| Under 10 seconds | 40 ticks, nominally about 10 seconds | Raised to the library's tick floor. A short timeout is not honoured. |
+| The manager's 60 seconds | 240 ticks, nominally about 60 seconds | Between the floor and the cap, so used as requested. |
+| Over 120 seconds | 480 ticks, nominally about 120 seconds | Reduced to the library's cap. |
+| The untimed form | 40 ticks, nominally about 10 seconds | The untimed form uses the floor value as its budget, so it is the *shortest*-waiting form, not the longest. |
 
 That last row is the one most likely to be got wrong. The untimed call is not an unbounded wait; it
-is a ten-second wait. A caller choosing between the two forms is choosing between roughly ten
-seconds and whatever it asks for within the ten-to-one-hundred-and-twenty-second band.
+is a 40-tick wait, which is the shortest budget the library offers. A caller choosing between the
+two forms is choosing between roughly ten seconds and whatever it asks for within the
+ten-to-one-hundred-and-twenty-second band — and in either case must impose its own deadline if it
+needs a hard one, because the budget the library enforces is a tick count and not a clock.
 
 **Connection establishment blocks too, for its own bounded window.** Initialization polls for
 connectivity for up to ten one-second attempts before failing, as
@@ -468,6 +611,20 @@ without progress.
 `setParametersResponse` in this protocol; `API Surface` states this in full,
 because assuming otherwise is the single most common misreading of this interface.
 
+**One exception, and it removes the status from the caller's reach: subscription.** A
+`subscribeEvent` is acknowledged by `result` like a write, but the client library's subscribe call
+does not give that `result` to the caller. It sends the message, tests only whether *a reply
+arrived*, releases the reply unread and returns success [`json_hal_client.c:719-727`, returning at
+`:745`]. So for this one action the two propositions above collapse into one observable: the return
+code reports the transport outcome and nothing else, and a `Failed`, `Invalid Argument` or
+`Not Supported` status is indistinguishable from `Success`. **Semantic acceptance of a subscription
+cannot be established from the return code**, and a test must not assert it from one. The only
+evidence that a subscription is live is a subsequent `publishEvent` for the subscribed parameter;
+[`halSpecDetailed.md`](halSpecDetailed.md) states the limitation with its source lines and the
+workaround for a caller that needs the status sooner. This is a limitation of the transport API, not
+of the schemas — the schemas bind `result` to `subscribeEvent` correctly and the four statuses above
+apply to it unchanged.
+
 Per-status detail, including the exact enumeration definition, is in
 [`halSpecDetailed.md`](halSpecDetailed.md) and is not duplicated here.
 
@@ -485,10 +642,11 @@ therefore not infer durability from a `Success` result.
 
 **Persistence is a manager-side concern, implemented above the HAL boundary.** Where it happens, it
 happens in Telco Voice Manager's own local store rather than in the vendor implementation, and it is
-gated by the `TELCO_VOICE_FEATURE_ENABLE_PERSIST` build feature — one of the two documented
-`DISTRO` features for this component [`README.md:135-136`], disabled by default. The flag changes
-observable behaviour in two places, and the difference matters to anyone reasoning about the voice
-enable control:
+gated by the preprocessor macro `TELCO_VOICE_FEATURE_ENABLE_PERSIST`. That macro is **consumed** by
+this repository at exactly three sites and **defined** nowhere in it, so the blocks it guards compile
+out unless the build layer supplies it; `Variability Management` records what
+this repository does and does not establish about it. The macro changes observable behaviour in two
+places, and the difference matters to anyone reasoning about the voice enable control:
 
 - **With the feature enabled**, the manager stores the enable value locally after the HAL write has
   succeeded [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:2144-2151`], and
@@ -552,6 +710,99 @@ send-and-reply call sites in
 [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c`] show the pattern. That output is the
 manager's, not the vendor's, and the two are collected independently.
 
+**Warning: that manager-side tracing emits whole `JSON` messages, and its credential suppression
+covers one field at one call site.** This is stated as a warning rather than as a description
+because a reader who follows the pattern above will disclose credentials. The suppression that
+exists is a single substring test — the request trace is skipped only when the serialized message
+contains the literal `.AuthPassword`
+[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:620-623`]. Three further traces in the same
+file emit the serialized message with no test of any kind: a request at `:229`, the **reply** at
+`:238`, and another request at `:701`. So the reply direction is never filtered at all, which is the
+direction that carries a `getParametersResponse` — the message in which a password, an
+authentication user name, a subscriber telephone number, a call record or a `DECT` identity is
+actually returned.
+
+**The one filter that exists does not even cover every password.** Because the test looks for a
+literal dot followed by `AuthPassword`, a path whose leaf merely *ends* in `AuthPassword` does not
+match it. Four credential paths are therefore traced in full at the guarded call site as well:
+`SIP.Network.{i}.InboundAuthPassword` and `VoiceProfile.{i}.SIP.InboundAuthPassword`, where the
+preceding character is the `d` of `Inbound` rather than a dot; `CallControl.Mailbox.{i}.SMTPPassword`;
+and `DECT.Base.{i}.PIN`. Every authentication user name is likewise unmatched, as is every telephone
+number and every call-log field. The test is over-inclusive as well as under-inclusive: it applies to
+the whole serialized message rather than to one element, so a `setParameters` that batches a matching
+password alongside other parameters suppresses the entire trace and yields no diagnostic at all.
+
+**Consequently, whole-message tracing must be sanitized or disabled before a build reaches a
+subscriber device.** A caller must not treat the existing suppression as sufficient, must not add a
+whole-message trace of its own, and must not enable `X_RDK_Debug.LogServer` and
+`X_RDK_Debug.LogServerPort` to ship protocol messages off-box without applying the redaction rules
+below first — the schema describes those two parameters as a destination for remote logging of
+protocol messages, so enabling them exports whatever the vendor traces, credentials included.
+
+**Handling of credentials and subscriber data in log and debug output.** Some of what crosses this
+interface is credential material and much of the rest is subscriber personal data. The
+authentication passwords, authentication user names and the `v2` `DECT` base `PIN` are secrets: they
+authenticate the device to the operator's network, and their disclosure lets a third party register
+as the subscriber. Directory numbers, extension numbers and forwarding targets in both variants,
+together with the `v2`-only trunk number ranges and the whole `v2` `CallLog` subtree, are personal
+data describing who a subscriber called and when. The
+requirements below are therefore **normative for this interface**, and they bind the vendor
+implementation and the `RDK-B` caller equally. They are stated here because neither schema declares
+a redaction helper, a sensitivity marker or an opaque credential type, so nothing enforces them
+mechanically. [`halSpecDetailed.md`](halSpecDetailed.md) names the exact parameter definitions each
+rule applies to, per variant.
+
+- **No credential is written to log output at any severity.** Neither a vendor implementation nor a
+  caller may write an authentication password, an authentication user name, a `DECT` `PIN` or any
+  part of one — plaintext, encrypted, encoded, hashed or truncated — to a vendor log, to the
+  configured remote log server, to `syslog`, to standard output, to standard error, to a core file,
+  to a trace buffer or to any diagnostic dump. This holds at every point on the `printk` scale
+  above, including 7: a value too sensitive to appear at level 3 is not made acceptable by moving it
+  to level 7, and a debug build must not be a build that discloses credentials.
+- **A message that must refer to a credential names the parameter and redacts the value.** Where a
+  diagnostic has to identify what it operated on, it records the operation, the outcome and the
+  parameter path — that a write to `SIP.Client.{i}.AuthPassword` was rejected, for instance — and
+  never the value. A **fixed** redaction marker replaces the value, of a length unrelated to the
+  value's own: no prefix, no suffix, no first and last character, no character count and no hash. A
+  fragment or a length narrows a search, so publishing either is publishing part of the secret.
+- **A rejected value is not logged.** A validation failure is the case most likely to prompt an
+  implementer to log the offending input, and the case where doing so is most damaging: a rejected
+  password is frequently a valid credential for another account, another line or another device.
+  The verdict is logged; the input is not.
+- **Credentials and subscriber data are excluded from crash artefacts and from telemetry.** A core
+  dump, a minidump, a stack trace, an exception report, a heap snapshot or a support bundle must not
+  carry these values, and neither may any telemetry, analytics, metric label or usage report. This
+  is a separate obligation from the logging rule and it fails separately: a build with disciplined
+  logging still discloses everything if it uploads unfiltered cores. Where a platform's crash
+  handler cannot be constrained, the value must not be resident at the time the artefact can be
+  taken — which is what the clearing rule below achieves.
+- **Buffers holding a credential are cleared after use, on every path.** A caller overwrites the
+  storage holding a password, an authentication user name or a `PIN` as soon as it has finished with
+  it, including on the failure path, because a failed write or a failed read may have left part of a
+  value behind. The same applies to the serialized `JSON` request or reply that carried it: that
+  buffer is a copy of the secret, and releasing the `json_object` that owns it does not overwrite
+  it. A credential must not be copied into a longer-lived home — a data-model cache, a
+  configuration file, an environment variable, a message queue or a retry buffer — and must not be
+  passed to a component that has no need of it.
+- **Subscriber data follows the same discipline at a proportionate strength.** Telephone numbers,
+  call records and device identities are not secrets in the credential sense, but logging them
+  builds a record of a subscriber's calling behaviour. They are logged only where a specific
+  diagnostic requires them, never at informational level in normal operation, never in whole-message
+  form, and never shipped off-box without the redaction above. Where a diagnostic needs to
+  distinguish two calls, a stable non-reversible reference serves; the number itself does not need
+  to appear.
+- **The interface guarantees none of this.** Neither schema marks a parameter as sensitive, neither
+  offers a scrubbing action or an opaque type, and nothing lets a caller ask a vendor server to
+  suppress its own logging or verify that it does. A caller integrating a vendor implementation must
+  establish compliance by inspection or by contract, and must treat the absence of credentials from
+  a vendor log as unverified until it has done so.
+
+*Derived from `hal_schema/telcovoice_hal_schema_v1.json` and
+`hal_schema/telcovoice_hal_schema_v2.json` (the credential and subscriber-data parameter
+definitions, enumerated per variant in [`halSpecDetailed.md`](halSpecDetailed.md)), and from
+`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:620-623` together with the unguarded traces
+at `:229`, `:238` and `:701` (the scope of the suppression that exists).*
+
 **Vendor obligation.** A vendor implementation must honour the level written to `ModuleLogLevels`
 rather than treating it as advisory, must not emit at a verbosity above the configured level in
 normal operation, and should include enough context in each entry — a timestamp, the level and a
@@ -571,20 +822,27 @@ the numbers a caller can design against. The message and tick bounds are propert
 transport revision cited in `Build Requirements` — its
 `json-rpc-common/json_rpc_common.h`, `tcp_client.h` and `tcp_server.c` — and the connection window is
 the retry loop in `source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c`. None of them is a budget
-this document invents:
+this document invents. Two of the five are exact and two are nominal, and the difference matters when
+sizing a caller: the size and backlog bounds are fixed constants, whereas the reply-wait bounds are
+counts of receive-loop passes. A pass ends either when its 250-millisecond `select` expires or as soon
+as data is readable, and the pass that services the countdown is skipped while a multi-read reply is
+being reassembled, so the same tick budget can be spent in appreciably less than its nominal seconds
+on a busy connection and in appreciably more while a large reply arrives. A caller that needs a hard
+latency bound must impose its own:
 
 | Bound | Value | Consequence |
 | --- | --- | --- |
-| Message size | 16384 bytes of receive buffer | A single request or reply must fit. Larger payloads must be split across requests by the caller. |
-| Reply wait, shortest | approximately 10 seconds | The floor described in `Blocking calls`. No call returns faster than the server answers, but none waits less than this before giving up. |
-| Reply wait, longest | 120 seconds | The cap. A longer request timeout is reduced to it. |
+| Request size | 16384 bytes, the fixed server receive buffer [`json_rpc_common.h:87`, `tcp_server.c:106,219,260`] | A single request must fit. The server does not accumulate across reads, so a larger request arrives as unparseable fragments; the caller must split the payload across requests. |
+| Reply size | No stated ceiling. The client reassembles a multi-chunk reply on the heap [`tcp_client.c:188-212`] | A reply larger than one buffer is delivered whole. A caller must not impose a 16384-byte expectation on a reply, and must not assume a bound the transport does not state. |
+| Reply wait, shortest | 40 ticks, nominally about 10 seconds | The floor described in `Blocking calls`. It bounds receive-loop passes rather than elapsed time, so treat the seconds figure as nominal. |
+| Reply wait, longest | 480 ticks, nominally about 120 seconds | The cap. A longer request timeout is reduced to it, and the same tick-versus-clock caveat applies. |
 | Connection establishment | approximately 10 seconds | Ten one-second attempts before initialization fails. |
 | Server connection backlog | 32 | The listen backlog on the vendor side of the socket. |
 
 **Caller Responsibilities:**
 
-- Size a `params` batch against the message bound rather than assuming the transport will fragment
-  arbitrarily large documents.
+- Size a `params` batch against the **request** bound rather than assuming the transport will
+  reassemble an arbitrarily large request. Reassembly exists on the reply path only.
 - Do not issue HAL requests from a latency-sensitive thread. A single request can occupy its thread
   for the full reply wait, and that wait is seconds rather than milliseconds.
 - Poll rather than subscribe for anything other than the one subscribable parameter, and choose a
@@ -731,28 +989,39 @@ team makes and releases the necessary changes. Consequently:
 - A parameter a deployment needs but the schema lacks is a change request upstream, not a local
   edit. This is the mechanism that keeps every deployment's contract identical.
 
-Interface evolution follows [Semantic Versioning 2.0.0](https://semver.org/), and a vendor
+Interface evolution follows
+[Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html), and a vendor
 implementation complies with a specific version of the interface. Note that this governs the
 **schema** version above and not the repository's release tag; the two are distinct identities, as
 `Version History` sets out.
 
-**Two build-time features vary this component**, both documented in the repository's own
-configuration register [`README.md:135-136`] and both disabled by default:
+**Two build inputs vary this component, and this repository establishes them as preprocessor macros
+rather than as named build-system features.** Both are consumed by the source and neither is defined
+by it, so both are off in a build that does not supply them:
 
-| `DISTRO` feature | Preprocessor macro | What it varies |
+| Build input | Where this repository consumes it | What it varies |
 | --- | --- | --- |
-| `rdkb_voice_manager_dmltr104_v2` | `FEATURE_RDKB_VOICE_DM_TR104_V2` | Which `TR-104` data model the manager implements, and therefore which of the two shipped schemas a deployment must present. |
-| `telco_voice_feature_enable_persist` | `TELCO_VOICE_FEATURE_ENABLE_PERSIST` | Whether the voice enable state is persisted locally or derived from `WAN` link state, as `Persistence Model` describes. |
+| `FEATURE_RDKB_VOICE_DM_TR104_V2` | `source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h:28-32` selects the parameter header; the `automake` conditional `VOICE_V2` [`configure.ac:75`] selects the source set | Which `TR-104` data model the manager implements, and therefore which of the two shipped schemas a deployment must present. |
+| `TELCO_VOICE_FEATURE_ENABLE_PERSIST` | `source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:1846`, `:2144` and `source/TR-181/middle_layer_src/telcovoicemgr_dml_hal_param_v2.c:255` — the three `#ifdef`/`#ifndef` sites, and the only ones | Whether the voice enable state is persisted locally or derived from `WAN` link state, as `Persistence Model` describes. |
 
-The first is implemented through two coordinated mechanisms rather than one, and both must agree for
-a build to be coherent: the preprocessor macro selects which parameter header the middle layer
-compiles against
-[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h:28-32`], while the `automake` conditional
-`VOICE_V2` — driven by the `ISRDKB_VOICE_DM_TR104_V2` environment variable
-[`configure.ac:75`] — selects the corresponding source set
-[`source/TR-181/middle_layer_src/Makefile.am`]. The same macro also selects the data model path
-templates the manager uses to address parameters
-[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h:61-91`], which is why the choice is visible
+**The external feature names that define those macros are not established by this repository, and
+none is named here.** The macros appear only as `#ifdef` conditions in the source and as the
+`automake` conditional above; no `DISTRO` feature name, `bitbake` variable or other build-layer
+identifier that would set them appears anywhere in this repository's source, configuration, schemas
+or build files. That mapping lives in the build metadata layer outside this repository, and a reader
+who needs it must resolve it there. Naming a feature here would be an invention, and a reader
+checking a build against an invented name would find nothing.
+
+**The data-model selection travels through two mechanisms that must agree**, which is the one part of
+this a reader can get wrong even with both names in hand. The macro selects the parameter header the
+middle layer compiles against [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h:28-32`]; the
+`automake` conditional `VOICE_V2`, true when the environment variable `ISRDKB_VOICE_DM_TR104_V2` is
+`true` [`configure.ac:75`], selects the matching source set
+[`source/TR-181/middle_layer_src/Makefile.am:33`]. A build that sets one without the other is
+incoherent. The macro also selects the parameter path templates the manager addresses parameters
+with — `Device.Services.VoiceService.%d.CallControl.Line.%d.` and its siblings under `v2`,
+`…VoiceProfile.%d.Line.%d.` under `v1`
+[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h:61-91`] — which is why the choice is visible
 on the wire even though nothing in the envelope names it.
 
 ### Platform or Product Customization
@@ -870,8 +1139,8 @@ documentation for this interface.
 - **Voice service state is observable, and one control drives it.** Behaviour that varies with state
   is keyed to `Device.Services.VoiceService.{i}.X_RDK_Status`, which is read-only, and driven by
   `Device.Services.VoiceService.{i}.X_RDK_Enable`, which is read-write.
-  `State Diagram` gives the values, the transitions the schema constrains, and
-  the transitions it does not.
+  `State Diagram` gives both value sets with their data-model ordinals, and
+  records that nothing in this repository establishes which value may follow which.
 - **Transport state is a separate axis.** A request can fail because the socket is not connected
   regardless of what the voice service state is, which is why
   `Process Model` treats disconnection as a first-class state rather than an
@@ -905,7 +1174,23 @@ shapes a caller must be able to build and read.
 | --- | --- | --- |
 | `params` | `setParameters`, `getParameters`, `getParametersResponse`, `subscribeEvent`, `publishEvent`, `deleteObject` | An array, minimum one item, items unique. Each item is a parameter entry whose required fields vary by action. |
 | `Result` | `result` | An object with a single `Status` field, `additionalProperties: false`, `Status` required. |
-| `SchemaInfo` | `getSchemaResponse` | An object with a single `FilePath` field, `additionalProperties: false`, `FilePath` required, matching the path expression `^(.+)/([^/]+)$`. |
+| `SchemaInfo` | `getSchemaResponse` | An object with a single `FilePath` field, `additionalProperties: false`, `FilePath` required, matching the path expression `^(.+)/([^/]+)$`. **Server-supplied and untrusted — see the note below.** |
+
+**`SchemaInfo.FilePath` is the one field in this contract whose value comes from the vendor server
+and looks like something a caller might act on. It must be compared, never dereferenced.** The
+expression `^(.+)/([^/]+)$` requires only a slash with something on each side of it: it admits `..`
+segments, an absolute path anywhere in the filesystem, a symbolic link, a device node and embedded
+whitespace, so validating a `getSchemaResponse` says nothing about the safety of the string it
+carries. The only supported check is **exact string equality against the configured
+`hal_schema_path`**, `/etc/rdk/schemas/telcovoice_hal_schema.json`
+[`config/telcovoice_manager_conf.json`] — which is also the only schema location the transport
+library itself opens, doing so from the local configuration file during client initialization and
+never from a server reply [`json_hal_common.c:307`, `:322`]. A caller must not open, stat, read,
+resolve, canonicalise or shell out to the returned value, must not derive a new path from it, and
+must not adopt it in place of its own configured path. On mismatch it fails closed and reports a
+deployment disagreement, and it reports the configured path rather than echoing the received string,
+which is server-controlled text. [`halSpecDetailed.md`](halSpecDetailed.md) states the rule with the
+exchange it applies to.
 
 **Required fields per `params` entry, which differ by action and are easy to get wrong:**
 
@@ -974,6 +1259,16 @@ conditional payload requirement to `setParameters`, `getParameters`, `deleteObje
 with no payload binding are **`getSchema`, `getActiveSubscriptions` and
 `getActiveSubscriptionsResponse`** — for these the four envelope fields are the entire message, and
 `getSchema`'s own definition states that the action has no parameter list.
+
+**The bare envelope means something different for `getSchema` than for the two subscription
+actions.** `getSchema` is a request whose *answer* is a bound payload, `getSchemaResponse` carrying
+`SchemaInfo`, so the pair is complete. `getActiveSubscriptions` has no bound answer at all: its
+response action binds nothing either, and neither schema defines a subscription list to put in one.
+The row above therefore records what the enumeration contains, not a working enumeration facility —
+**the content of `getActiveSubscriptionsResponse` is undefined by this contract and whatever a server
+places there is vendor-specific**, and the transport library provides no call that issues the action
+or parses a list from the reply. `Asynchronous Notification Model` states the
+consequence for a caller.
 
 **There is no `setParametersResponse`.** This is the single most commonly mis-stated fact about this
 protocol, so it is stated plainly: a write is acknowledged by the generic **`result`** action
@@ -1057,41 +1352,90 @@ unsolicited, delivered on the library's socket thread. See
 
 ### State Diagram
 
-**The state-bearing part of this interface is two parameters wide.** One read-write control,
-`Device.Services.VoiceService.{i}.X_RDK_Enable`, takes `Enable` or `Disable`. One read-only
-observable, `Device.Services.VoiceService.{i}.X_RDK_Status`, takes `Stopped`, `Starting`, `Started`,
-`Stopping` or `Error`. Each enumeration is referenced by exactly that one parameter and by nothing
-else in either schema. The lifecycle those two imply is:
+**The state-bearing part of this interface is two parameters wide, and this interface establishes
+their value sets and nothing about their ordering.** One read-write control,
+`Device.Services.VoiceService.{i}.X_RDK_Enable`, takes `Enable` or `Disable`
+(`voiceStateEnumList`). One read-only observable,
+`Device.Services.VoiceService.{i}.X_RDK_Status`, takes `Stopped`, `Starting`, `Started`, `Stopping`
+or `Error` (`voiceStatusEnumList`). Each enumeration is referenced by exactly that one parameter and
+by nothing else in either shipped schema, and the two enumerations are identical between the
+variants. The values, with the ordinals the manager's own data model assigns them:
+
+| Parameter | Access | Values, with the ordinal each maps to | Ordinals established by |
+| --- | --- | --- | --- |
+| `X_RDK_Status` | Read-only | `Stopped` 0, `Starting` 1, `Started` 2, `Stopping` 3, `Error` 4 | `config/RdkTelcoVoiceManager_v2.xml:189`, `config/RdkTelcoVoiceManager_v1.xml:182` |
+| `X_RDK_Enable` | Read-write | `Disable` 0, `Enable` 1 | `config/RdkTelcoVoiceManager_v2.xml:183` |
+
+The same two value sets as a state diagram, with the states declared and **no transition drawn**,
+because no transition is specified. There is deliberately no start marker either: an initial state
+would assert which value a service holds before anything happens, and nothing in this repository
+establishes that.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Stopped
-    Stopped --> Starting: write X_RDK_Enable = Enable
-    Starting --> Started
-    Started --> Stopping: write X_RDK_Enable = Disable
-    Stopping --> Stopped
-    Starting --> Error
-    Started --> Error
-    Stopping --> Error
+    state "X_RDK_Status - read-only observable" as observable {
+        state "Stopped - ordinal 0" as v0
+        state "Starting - ordinal 1" as v1
+        state "Started - ordinal 2" as v2
+        state "Stopping - ordinal 3" as v3
+        state "Error - ordinal 4" as v4
+    }
+    state "X_RDK_Enable - read-write control" as control {
+        state "Disable - ordinal 0" as c0
+        state "Enable - ordinal 1" as c1
+    }
 ```
 
-**What the schema constrains, and what this diagram infers.** The five status values and the two
-control values are exactly as the schema declares them, and the pairing of a two-value control with a
-five-value observable is likewise the schema's. **The ordering of the edges is inferred**, from two
-things: the transitional naming of `Starting` and `Stopping`, which places each between a settled
-state and its opposite; and the existence of a single `Enable` / `Disable` control, which supplies
-the only stimulus the interface offers. The schema itself **does not declare edge legality** — it
-constrains the set of values a parameter may hold, not which value may follow which. A caller should
-therefore treat this diagram as the intended lifecycle rather than as an enforced one, and should
-determine the current state by reading `X_RDK_Status` rather than by tracking transitions locally.
+**No edge is drawn because nothing in this repository establishes edge legality, and the search for
+one was exhaustive rather than cursory.** Neither shipped schema constrains which value may follow
+which — a schema constrains the set of values a parameter may hold, and these two do exactly that
+and no more. Neither data-model description declares a transition either: both supply only the
+value-to-ordinal mapping quoted above. And the manager does not model transitions: on receiving a
+status it maps the vendor-reported string to its internal enumeration with a flat chain of string
+comparisons and no check against a previous value
+[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal_param_v1.c:4146-4168`,
+`…/telcovoicemgr_dml_hal_param_v2.c:266-288`]. An ordering drawn from the transitional *naming* of
+`Starting` and `Stopping` would be an inference presented as a contract, which is precisely what a
+downstream test author would then assert against, so none is offered here.
 
-**`Error` is shown as reachable and with no exit.** Nothing in either schema states how a service
-leaves `Error`: there is no reset-to-running transition, no documented recovery action and no
-parameter reporting a recovery in progress. An edge from `Error` back to `Started` would be an
-invention, so none is drawn. In practice a caller confronted with `Error` has the ordinary controls
-available to it, including writing `Disable` and then `Enable`, or the separate `X_RDK_FactoryReset`
-parameter — but this interface does not state that either clears the condition, and this
-specification does not claim it does.
+**The value domain is closed even though the ordering is not — the two are separate claims, and
+only the second is unspecified.** Each parameter's `value` is a `$ref` to an enumerated list rather
+than to a free string type: `voiceStatusEnumList` and `voiceStateEnumList` are JSON Schema `enum`
+declarations carrying exactly the members tabulated above, in `telcovoice_hal_schema_v1.json` and
+`telcovoice_hal_schema_v2.json` alike. Both data-model descriptions close the same sets a second
+time, declaring each parameter as a mapped enumeration over those values and no others
+[`config/RdkTelcoVoiceManager_v2.xml:189`, `config/RdkTelcoVoiceManager_v1.xml:182`]. So a caller may
+rely on the set: a server reporting a sixth status string, or accepting a third control value, is not
+conforming to the schema it publishes, and a test author may assert the closed set.
+
+**What a caller does with a non-conforming value, since nothing on the receive path enforces the
+enumeration.** The closure is a contract, not a runtime guarantee, and a caller should know exactly
+where the gap is. The client library never validates a reply against the schema — it parses the
+response and hands it over — and the server-side check that would catch an out-of-set value is
+compiled in only when the transport is built with schema validation enabled, in which case the server
+replaces the offending response with a `Not Supported` result rather than sending the value
+[`json_hal_server.c:490-511` in the pinned `json-hal-library` revision cited in
+`Build Requirements`]. The manager's own consumer is equally unguarded in the opposite
+direction: its status mapping is a chain of comparisons against the five strings with **no default
+branch**, so an unrecognised string is silently ignored and the previously cached value is retained
+[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal_param_v1.c:4146-4168`,
+`…/telcovoicemgr_dml_hal_param_v2.c:266-288`]. A caller that reads a value outside the enumeration is
+therefore looking at a vendor defect: it should reject or log the value as non-conformant and must not
+model it as a sixth state, because no meaning, ordinal or behaviour is defined for it anywhere in
+this interface.
+
+**What a caller must not rely on is ordering within that closed set.** A caller must not rely on a
+particular value being reachable only from a particular predecessor, and must not track state locally
+in the expectation that the vendor will announce every intermediate value — the observable is polled,
+not subscribable (`Asynchronous Notification Model`), so intermediate values may be missed between
+reads. The reliable way to establish the current state is to read `X_RDK_Status`.
+
+**`Error` has no specified exit.** Nothing in either schema, either data-model description or the
+manager source states how a service leaves `Error`: there is no recovery action, no reset-to-running
+transition and no parameter reporting a recovery in progress. A caller confronted with `Error` has
+the ordinary controls available to it — writing `Disable` and then `Enable`, or the separate
+`X_RDK_FactoryReset` parameter — but this interface does not state that either clears the condition,
+and this specification does not claim it does.
 
 **This is deliberately not a `SIP` registration diagram.** The registration state of a `SIP` client
 or a `DECT` handset is what a reader may expect to find here, but neither schema constrains it:

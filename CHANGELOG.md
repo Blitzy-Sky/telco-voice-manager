@@ -6,9 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 repository adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Every release heading below names a tag that exists in this repository, and its date is the date of
-the tag. A `git describe --tags` string such as `v2.0.5-1-gb1c4d13` denotes a number of commits past
-a tag rather than a release, so it never appears here as a release heading. Work that is not yet
-tagged is listed under `Unreleased`.
+the tag. A `git describe --tags` string of the form `<tag>-<commits-since-tag>-g<abbreviated-hash>`
+denotes a position in history rather than a release, so no such string appears here as a release
+heading and no literal value of one is reproduced anywhere in this file. Work that is not yet tagged
+is listed under `Unreleased`.
 
 Two version numbers travel with this repository, and they are not the same kind of thing:
 
@@ -18,22 +19,48 @@ Two version numbers travel with this repository, and they are not the same kind 
   `schemaVersion` definition in `hal_schema/telcovoice_hal_schema_v1.json` and
   `hal_schema/telcovoice_hal_schema_v2.json` as the constant **0.0.1**. The schema states that this
   value must not be modified, because HAL operation depends on the client and the vendor server
-  agreeing on it. It is advanced independently of the release tag, and it is distinct from the `v1`
-  and `v2` in the schema filenames, which distinguish the two shipped data-model variants rather
-  than naming a schema version.
+  agreeing on it. It is not derived from the release tag and has not changed across the tags listed
+  below, and it is distinct from the `v1` and `v2` in the schema filenames, which distinguish the two
+  shipped data-model variants rather than naming a schema version.
 
 ## Unreleased
 
-Changes that are merged but not yet part of a tagged release
-([compare with v2.0.5](https://github.com/rdkcentral/telco-voice-manager/compare/v2.0.5...HEAD)).
+Changes that are merged but not yet part of a tagged release. No comparison link is given here: a
+range ending at `HEAD` names a different pair of commits on every read, so it would be inaccurate the
+moment the next commit landed. The tags themselves are listed with their dates under
+`Releases before this file`.
 
 ### Added
 
-- `docs/pages/CHANGELOG.md` - a symlink to this file, so the repository's release history renders
-  alongside the HAL documentation in the generated Doxygen site.
+The repository had no documentation directory and no changelog before these entries. The whole set
+below is the HAL documentation milestone for this repository.
+
+- `docs/pages/halSpec.md` - the voice `JSON` HAL interface specification: architecture, the
+  deployment contract (configuration file, schema path, server port), initialization and startup,
+  threading, process and memory models, blocking behaviour, asynchronous notification, error
+  handling, persistence, the non-functional requirements, and the complete action and object surface.
+  This is the generated site's main page.
+- `docs/pages/halSpecDetailed.md` - the per-parameter reference for both shipped schemas: every
+  parameter definition with its type, constraint, access and description, plus the object index, the
+  enumeration appendix, worked message examples per protocol workflow, and the known contract
+  defects.
+- `docs/generate_docs.sh` - the documentation build entry point, pinning the `hal-doxygen` generator
+  at tag `1.2.0` and passing `PROJECT_NAME="RDK-B Telco Voice HAL"`.
+- `docs/.gitignore` - excludes the generator checkout, the generated `output` tree and
+  `node_modules`, none of which is committed.
+- Five symlinks under `docs/pages/` - `CHANGELOG.md`, `CONTRIBUTING.md`, `COPYING.md`, `LICENSE.md`
+  and `NOTICE.md` - pointing at the repository-root files, so the release history and the legal texts
+  render alongside the HAL documentation in the generated site.
 - This `CHANGELOG.md`, the release-history record for the repository and the source for the
-  `Version History` topic of the HAL specification. The repository had no changelog before this
-  entry.
+  `Version History` topic of the HAL specification.
+
+### Changed
+
+- `README.md` rewritten as a manager overview: component purpose and boundary, architecture, the
+  build-time data-model variant selection, runtime behaviour, repository layout and the known
+  contract defects, with the per-parameter and per-message contract detail moved to the two documents
+  above rather than duplicated. Corrections in the same pass include the shipped data-model sizes,
+  the request-path inventory and the variant differences between the two schemas.
 
 ## Releases before this file
 
