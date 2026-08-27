@@ -980,7 +980,7 @@ anything.
   64-bit block and legacy key sizes place it outside current use; `MD5` and HMAC-MD5 carry the
   collision and preimage weaknesses set out in RFC 6151; `SHA-1` is deprecated for TLS by RFC 9155
   and, in the initial public draft of NIST SP 800-131A Rev. 3, scheduled for retirement after
-  December 31, 2030; and `DES` and `3DES` are disallowed for new protection by NIST SP 800-131A
+  2030-12-31; and `DES` and `3DES` are disallowed for new protection by NIST SP 800-131A
   Rev. 2, the current final revision, with `3DES` additionally carrying
   the birthday limit of a 64-bit block. `Static` SRTP keying pins one pre-provisioned master key
   with no per-session freshness and no forward secrecy, so a single disclosure exposes every session
