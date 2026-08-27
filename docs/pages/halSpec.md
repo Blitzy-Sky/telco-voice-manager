@@ -421,10 +421,14 @@ decrements the reference count rather than freeing unconditionally.
   - **A reply is not capped at one buffer.** The client reads in 16384-byte chunks, and whenever a
     read fills the buffer it appends the chunk to a heap accumulator grown by `realloc` and reads
     again, handing the reassembled document to the parse callback only once a short read completes it
-    [`tcp_client.c:188-212`, dispatch at `:234`]. A reply spanning several chunks is therefore
-    delivered whole, and neither the schemas nor the transport states a ceiling on its size. A caller
-    must not reject a large `getParametersResponse` on size grounds and must not assume a bound the
-    transport does not impose; the practical limit is the memory the accumulation consumes.
+    [`tcp_client.c:188-212`, dispatch at `:234`]. Neither the schemas nor the transport states a ceiling
+    on a reply's size, so a caller must not reject a large `getParametersResponse` on size grounds and
+    must not assume a bound the transport does not impose; the practical limit is the memory the
+    accumulation consumes. **A reply spanning several chunks is not guaranteed to arrive whole.**
+    Completeness is inferred from read length rather than from JSON structure, so any read that does
+    not fill the buffer ends the assembly and a reply delivered in short segments is parsed early as a
+    truncated document. There is no length prefix and no delimiter with which to detect it;
+    `Contract Defects` in `halSpecDetailed.md` records this with its locator.
 - **Do not reuse a request handle across two sends.** Each request carries its own request
   identifier, and correlation depends on that identifier being unique to one exchange.
 
@@ -839,7 +843,7 @@ latency bound must impose its own:
 | Bound | Value | Consequence |
 | --- | --- | --- |
 | Request size | 16384 bytes, the fixed server receive buffer [`json_rpc_common.h:87`, `tcp_server.c:106,219,260`] | A single request must fit. The server does not accumulate across reads, so a larger request arrives as unparseable fragments; the caller must split the payload across requests. |
-| Reply size | No stated ceiling. The client reassembles a multi-chunk reply on the heap [`tcp_client.c:188-212`] | A reply larger than one buffer is delivered whole. A caller must not impose a 16384-byte expectation on a reply, and must not assume a bound the transport does not state. |
+| Reply size | No stated ceiling, and no framing. The client accumulates a multi-chunk reply on the heap and treats any short read as the end of it [`tcp_client.c:188-212`] | A reply larger than one buffer is delivered whole. A caller must not impose a 16384-byte expectation on a reply, and must not assume a bound the transport does not state. |
 | Reply wait, shortest | 40 ticks, nominally about 10 seconds | The floor described in `Blocking calls`. It bounds receive-loop passes rather than elapsed time, so treat the seconds figure as nominal. |
 | Reply wait, longest | 480 ticks, nominally about 120 seconds | The cap. A longer request timeout is reduced to it, and the same tick-versus-clock caveat applies. |
 | Connection establishment | approximately 10 seconds | Ten one-second attempts before initialization fails. |
