@@ -272,7 +272,9 @@ the revision this workspace records for it,
   — and the receive thread traverses and deletes from it concurrently. The third is the socket write,
   which is unguarded as well: `grep -n "mutex\|lock"` over
   [`tcp_client.c`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_client.c)
-  returns nothing, and the send loop retries around partial sends
+  returns nothing, and the send loop does not reliably retry around partial sends - it compares a
+  rising sent count against a falling remainder [`tcp_client.c:66-77`], so one partial `send` of at
+  least half the remaining bytes ends the loop with the tail unsent and still reports success
   [`tcp_client.c:59-79`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_client.c#L59-L79),
   so two concurrent writers can interleave bytes on a stream that carries no framing to separate
   them. **`reqId` gives correlation, not thread safety — and it gives correlation only while the
@@ -2931,7 +2933,17 @@ Compiling that logic and running it unchanged gives these outcomes, each of whic
 | `2001:db8::1/64` | `2001:db8::1` | **6**, not 64 — the `4` was truncated, then `atoi("6")` | valid |
 | `2001:db8::1/64abc` | `2001:db8::1` | 64 — the trailing `abc` silently ignored | valid |
 | `fe80::1/x` | `fe80::1` | **0** from `atoi("x")`, which passes `<= 128` | valid |
-| `2001:db8::1/64;touch /tmp/pwned` | `2001:db8::1` | 64 | **valid** — the `;` and everything after it were never tested |
+| `2001:db8::1/64$(id)` | `2001:db8::1` | 64 | **valid** — the `$(id)` and everything after the `/` were never tested |
+
+**Why the example payload contains neither `;` nor `,`.** The rule list is tokenised on `;`
+[`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:364`] before each rule is
+tokenised on `,` [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:369-386`], and
+`ipAddr` is filled from one of those inner tokens
+[`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:390-391`]. A value containing
+either delimiter is therefore split by the tokeniser rather than carried, and the fragment after it
+becomes a separate malformed rule; neither delimiter reaches a command string through this field. A
+payload that survives both must avoid both, which `$(id)` does — the substitution needs no delimiter
+character, and command substitution is performed by the shell that `system()` starts.
 
 And the string that actually travels is the **original**, untruncated and suffix-bearing: step 7
 interpolates `ipAddr` — the tuple field as received — into the sysevent buffers
@@ -3112,6 +3124,24 @@ authority here.
 *Derived from `hal_schema/telcovoice_hal_schema_v2.json` (`definitions.getParameterSupportedList`)
 and the `v1` equivalent, by counting `anyOf` branches and distinct `$ref` targets in all four list
 definitions of both files.*
+
+### Transport delivery guarantees the pinned library does not provide
+
+Four properties of `json-hal-library` at the pinned revision bear directly on what a caller and a
+vendor server may assume about message delivery. None is a schema defect, and none is fixable from
+this repository; each is stated because the overview's process-boundary and reassembly statements are
+only true within these limits.
+
+| # | Property | What the code does | Consequence |
+|---|---|---|---|
+| 1 | **A send can report success with bytes unsent, in both directions** | Both send loops set `total_bytes_left = strlen(buffer)`, then on each iteration add the `send` return to `total_bytes_sent` **and subtract it from `total_bytes_left`**, continuing only while `total_bytes_sent < total_bytes_left` ([`tcp_client.c:66-77`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_client.c#L66-L77), [`tcp_server.c:60-71`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_server.c#L60-L71)) | The two counters converge from opposite ends, so a single partial `send` returning at least half the remaining bytes satisfies the exit condition and the function returns `RETURN_OK` with the tail unsent. `-1` is treated as fatal without distinguishing `EINTR` or `EAGAIN`, so a transient condition ends the send. A caller cannot read a successful send as a delivered message |
+| 2 | **There is no framing, and only the reply path reassembles** | The server hands exactly what one `recv` returned to its handler ([`tcp_server.c:219,262`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_server.c#L219)); the client appends full reads to a `realloc`-grown accumulator and parses when a short read completes it ([`tcp_client.c:188-212`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_client.c#L188-L212)) | A request that does not arrive in one read is parsed as a fragment and dropped without a reply. On the reply path, completeness is inferred from read length rather than from JSON structure, and the accumulation is unbounded and grows by repeated reallocation |
+| 3 | **Active client connections are unbounded and unvalidated** | `accept` is followed by an unchecked `malloc`, then `conn->fd` is written, the node is appended to a global list, and `FD_SET(new_sd, &master_set)` is called with no check that `new_sd < FD_SETSIZE` ([`tcp_server.c:188-213`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_server.c#L188-L213)) | Nothing caps concurrent clients, an allocation failure is dereferenced, and a descriptor at or above `FD_SETSIZE` is written outside the `fd_set`. The listen backlog of 32 bounds the pending queue only, not the accepted set |
+| 4 | **Subscriptions are unbounded, and publication sends while holding the global lock** | Each accepted subscription is appended with no deduplication and no cap ([`json_hal_server.c:611-613`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_server.c#L611-L613)); publication takes `gm_subscription_mutex`, walks the list, and calls `socket_send` for each recipient **inside** the lock, releasing it only at the end ([`json_hal_server.c:750-796`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_server.c#L750-L796)) | Repeated subscribes for one parameter accumulate duplicate entries and duplicate deliveries, and one slow or blocked recipient stalls every subscription operation and every other recipient's delivery for as long as its send blocks |
+
+Items 1 and 2 apply to this manager as a client; items 3 and 4 constrain a vendor server built on the
+same library. All four are properties of the transport this documentation cites as its authority and
+are out of scope for this change, which alters no source file.
 
 ## Error Handling
 

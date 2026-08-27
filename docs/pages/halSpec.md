@@ -440,8 +440,14 @@ decrements the reference count rather than freeing unconditionally.
   which disconnected has released anything on the server's behalf, and it must be able to serve a
   fresh connection from a restarted manager without operator intervention.
 - Neither side may assume the other's allocation lifetimes. This is the practical benefit of the
-  two-process model: a leak or a corruption in the vendor implementation cannot corrupt the
-  manager's heap, which is not true of a C HAL loaded into the calling process.
+two-process model: a vendor's allocation policy cannot reach the manager's heap, because the
+  two share no address space and no allocator. That is a statement about pointers and
+  allocations, and it must not be read as isolation from a hostile peer: the peer's DATA does
+  cross the boundary, and this manager copies received JSON names and values into fixed buffers
+  without always bounding them. `Contract Defects` in `halSpecDetailed.md` records those copies
+  with their locators. A malformed or hostile message can therefore corrupt manager memory
+  through the parsing path, which is a different exposure from the one a C HAL in-process has
+  and not an absence of exposure.
 
 ### Power Management Requirements
 
