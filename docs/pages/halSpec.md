@@ -4,7 +4,7 @@
 
 | Date | Comment | Version |
 | --- | --- | --- |
-| 2026-08-24 | Initial release. Specifies the Telco Voice `JSON` HAL contract carried by `hal_schema/telcovoice_hal_schema_v1.json` and `hal_schema/telcovoice_hal_schema_v2.json`, recorded as an `Unreleased` entry in `CHANGELOG.md`. | 1.0.0 |
+| 2026-08-24 | Initial release. Specifies the Telco Voice `JSON` HAL contract carried by `hal_schema/telcovoice_hal_schema_v1.json` and `hal_schema/telcovoice_hal_schema_v2.json`, recorded as an `Unreleased` entry in [CHANGELOG.md](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/CHANGELOG.md). | 1.0.0 |
 
 The `Version` column above is the revision of **this document** and of nothing else. Four
 distinct version identities apply to this component, and conflating them is the most common way
@@ -14,7 +14,7 @@ to misread it. They are listed separately here, each with the artefact that esta
 | --- | --- | --- |
 | Document revision | `1.0.0` | The table above. Applies to this specification only. |
 | HAL schema version | `0.0.1` | `definitions.schemaVersion.const`, identical in both shipped schemas. Travels in the envelope's `version` field. The schema states that the value must not be modified and that HAL operation cannot be performed without the correct supported version. |
-| Release tag | `v2.0.5` | The repository's most recent tag, dated 2026-05-18 in `CHANGELOG.md`, which also records `v2.0.4`, `v2.0.3`, `v2.0.2`, `v2.0.1` and `v2.0.0`. |
+| Release tag | `v2.0.5` | The repository's most recent tag, dated 2026-05-18 in [CHANGELOG.md](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/CHANGELOG.md), which also records `v2.0.4`, `v2.0.3`, `v2.0.2`, `v2.0.1` and `v2.0.0`. |
 | Generated-site version string | Computed at build time, not fixed | `docs/generate_docs.sh` runs `git describe --tags` and passes the result to the documentation generator as `PROJECT_VERSION`. |
 
 Two consequences follow. The generated-site string is **not** a version identity this document can
@@ -76,13 +76,40 @@ documentation generator used by this repository does **not** render them; it dis
 text instead. That limitation is stated here rather than worked around, because the only available
 workaround would fix the generated site at the cost of the surface most readers actually use.
 
+**Three further limitations of the generated site, for the same reason.** Each was measured against
+the site this repository's `docs/generate_docs.sh` produces, and each originates in the generator's
+own page template and emitted navigation assets rather than in this document. Read this document on
+GitHub where any of them matters.
+
+- **The generated site does not adapt to a narrow viewport.** Its navigation pane is a fixed 500
+  pixels wide plus a 6-pixel splitter and does not shrink, so at a 1280-pixel viewport 774 pixels are
+  left for content, and below roughly 768 pixels the content column has no usable width at all. The
+  same content reflows normally on GitHub.
+- **Wide tables scroll inside the content column rather than reflowing.** The generator's table style
+  sets no wrapping rule, so a long unbroken identifier or pattern widens its table beyond the column
+  and is reached by a horizontal scrollbar. What could be fixed from this side has been: the two
+  value patterns too long for a table cell are stated in their own section of
+  [halSpecDetailed.md](halSpecDetailed.md) rather than inline, which reduced the widest unbroken run
+  inside any table to 84 characters. The residual width comes from ordinary
+  `Device.Services.VoiceService` identifiers, which cannot be shortened.
+- **The generated page does not declare its language, and renders in limited-quirks mode.** The root
+  element carries an unsubstituted template placeholder in place of a language code, so assistive
+  technology cannot determine the document language, and the transitional doctype the generator emits
+  puts the browser into limited-quirks layout.
+
+These are recorded rather than repaired because the files that produce them are not part of this
+repository: the generator is cloned at build time into `docs/build`, which `docs/.gitignore` excludes,
+and the documentation plan for this work places the generator and the Doxygen toolchain out of scope.
+Changing them would alter the generated output of every `RDK-B` HAL repository that uses the same
+generator, which is a separate change with its own compatibility analysis.
+
 The Telco Voice HAL is the interface between `RDK-B` middleware and a vendor's voice
 implementation. It differs from most HALs in this bundle in one structural respect that governs
 everything else in this document: **it is not a C header and no library is linked across the HAL
 boundary.** The contract is a `JSON` Schema, the two participants are separate processes, and they
 exchange messages over a `TCP` socket. Consequently there is no inline API reference to generate
 from a header, and the per-parameter detail that inline documentation would carry for a C HAL is
-carried instead by [`halSpecDetailed.md`](halSpecDetailed.md) in this folder.
+carried instead by [halSpecDetailed.md](halSpecDetailed.md) in this folder.
 
 Telco Voice Manager is the `RDK-B` middleware that orchestrates voice services, and it is the
 **client** of this interface; the vendor supplies the **server**. The manager presents voice
@@ -112,7 +139,7 @@ and `VoiceService:1.1`. Both define every non-vendor path the `v1` schema uses, 
 identical between them, and nothing in that schema distinguishes one from the other, so this document
 writes `VoiceService:1.x` where it means either revision and claims no minor revision it cannot
 establish. The per-revision match counts are carried in
-[`halSpecDetailed.md`](halSpecDetailed.md).
+[halSpecDetailed.md](halSpecDetailed.md).
 One limit on the first citation is stated rather than glossed: `Device:2.21` is cited
 because it is the published version whose `Device.Services.` definition was checked when this
 document was written, and **this repository records no `Device:2` amendment level**, so the citation
@@ -142,7 +169,7 @@ memory, timeouts and error handling. The protocol tier is
 `Interface API Documentation`, which answer what the wire actually
 looks like, what varies by build, and what happens when a call fails. Within that second tier
 `API Surface` is the index: it names every action and marks the point past which the
-detail continues into [`halSpecDetailed.md`](halSpecDetailed.md).
+detail continues into [halSpecDetailed.md](halSpecDetailed.md).
 
 ## Optional Components
 
@@ -170,7 +197,7 @@ Nor can the variant be recovered from the wire. Both schemas declare the same mo
 them**. Only 23 parameter definition keys and 6 object definition keys are common to both files,
 and some shared keys differ in type and constraint between the variants rather than merely being
 present in both, so a client that assumed the wrong variant would not fail cleanly at the envelope
-— it would fail on individual parameters. [`halSpecDetailed.md`](halSpecDetailed.md) carries the
+— it would fail on individual parameters. [halSpecDetailed.md](halSpecDetailed.md) carries the
 divergences key by key.
 
 What *is* determinable from this repository is the model the **manager** was compiled against,
@@ -195,7 +222,7 @@ schema divides its parameter surface into a supported list and an optional list,
 `setParameters` accepts `anyOf` `setParameterSupportedList` or `setParameterOptionalList`. A
 parameter reachable only through an optional list is one a vendor server may legitimately not
 implement, so a caller must treat a `Not Supported` result on such a parameter as a normal
-outcome rather than an error. [`halSpecDetailed.md`](halSpecDetailed.md) records list membership
+outcome rather than an error. [halSpecDetailed.md](halSpecDetailed.md) records list membership
 per parameter, which is also what determines whether a parameter is writable at all.
 
 **Optional actions.** `deleteObject` is present in the action enumeration but is **not usable
@@ -242,7 +269,7 @@ The calls, in the order they must occur:
 `sleep(1)` repeated at most ten times [`telcovoicemgr_dml_hal.c:87-92`], giving a bounded
 establishment window of approximately ten seconds — which is what the in-source comment at
 [`:80-84`] states. There is no backoff multiplier, no jitter and no unbounded retry. This is called
-out explicitly because the repository's own `README.md` describes HAL reconnection as using
+out explicitly because the repository's own README describes HAL reconnection as using
 exponential backoff; the implementation does not, and the code is the authority.
 
 **Vendor obligation.** The vendor server must be accepting connections on the configured port
@@ -428,7 +455,7 @@ decrements the reference count rather than freeing unconditionally.
     Completeness is inferred from read length rather than from JSON structure, so any read that does
     not fill the buffer ends the assembly and a reply delivered in short segments is parsed early as a
     truncated document. There is no length prefix and no delimiter with which to detect it;
-    `Contract Defects` in `halSpecDetailed.md` records this with its locator.
+    `Contract Defects` in [halSpecDetailed.md](halSpecDetailed.md) records this with its locator.
 - **Do not reuse a request handle across two sends.** Each request carries its own request
   identifier, and correlation depends on that identifier being unique to one exchange.
 
@@ -452,7 +479,7 @@ two-process model: a vendor's allocation policy cannot reach the manager's heap,
   two share no address space and no allocator. That is a statement about pointers and
   allocations, and it must not be read as isolation from a hostile peer: the peer's DATA does
   cross the boundary, and this manager copies received JSON names and values into fixed buffers
-  without always bounding them. `Contract Defects` in `halSpecDetailed.md` records those copies
+  without always bounding them. `Contract Defects` in [halSpecDetailed.md](halSpecDetailed.md) records those copies
   with their locators. A malformed or hostile message can therefore corrupt manager memory
   through the parsing path, which is a different exposure from the one a C HAL in-process has
   and not an absence of exposure.
@@ -501,7 +528,7 @@ server returns beyond the envelope is **undefined by this contract and vendor-sp
 because the schemas set no `additionalProperties: false` at the top level, an arbitrary extra member
 still validates — so validation success says nothing about whether a subscription list is present or
 what shape it has. A caller that needs to know what it is subscribed to must track its own
-subscriptions. [`halSpecDetailed.md`](halSpecDetailed.md) carries the bare-envelope exchange and the
+subscriptions. [halSpecDetailed.md](halSpecDetailed.md) carries the bare-envelope exchange and the
 same statement beside it.
 
 **The four notification types, and the two that are specific to this HAL.** The schema's
@@ -523,7 +550,7 @@ event-driven design around voice line status or registration state has no mechan
 That single event carries a semicolon-terminated list of firewall rule tuples — per tuple an enable
 flag, a protocol, a port and an address. The schema constrains the protocol to `SIP` or `RTP` and the
 address to an `IPv4` or `IPv6` literal, with the exact validating expression given in
-[`halSpecDetailed.md`](halSpecDetailed.md) rather than reproduced here. The manager consumes the
+[halSpecDetailed.md](halSpecDetailed.md) rather than reproduced here. The manager consumes the
 event by matching the event name and applying the rules for the affected voice service instance
 [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1286`].
 
@@ -538,7 +565,7 @@ holds [`json_hal_client.c:741`, `:798`]. Both hang the process's entire HAL exch
 callback receives is borrowed from the library's live `JSON` object and is invalid the moment the
 callback returns, so anything still needed must be copied first. `Threading Model` and
 `Memory Model` state each of these as an obligation with its evidence, and
-[`halSpecDetailed.md`](halSpecDetailed.md) repeats the contract beside the event messages it
+[halSpecDetailed.md](halSpecDetailed.md) repeats the contract beside the event messages it
 governs.
 
 **Vendor obligation.** A server must accept a subscription for the supported parameter, acknowledge
@@ -571,7 +598,7 @@ seconds** — the figures the library's own comments give them — rather than e
 The mapping is approximate in both directions: a busy connection completes passes faster than four
 per second and spends the budget sooner, while a reply large enough to need more than one read
 suspends the countdown until reassembly finishes. `Memory and performance requirements` sets out why,
-and [`halSpecDetailed.md`](halSpecDetailed.md) gives the source lines under
+and [halSpecDetailed.md](halSpecDetailed.md) gives the source lines under
 *Transport and Protocol*. The practical
 consequences are worth stating plainly:
 
@@ -617,7 +644,7 @@ by reading the field directly. What a caller should do differs per value:
 | `Invalid Argument` | A parameter name, type or value was not acceptable. | Treat as a defect in the request, not a transient condition. Check the name against the schema, the `type` against the parameter's declared datatype, and the value against its constraint. |
 | `Not Supported` | The vendor does not implement this parameter or action. | Treat as a normal outcome rather than an error where the parameter is reachable only through an optional list, and stop requesting it. See `Optional Components`. |
 
-**`Invalid Argument` and `Not Supported` are the two a caller most often mishandles**, because both
+<b>`Invalid Argument` and `Not Supported` are the two a caller most often mishandles</b>, because both
 are permanent for a given request and neither should be retried. Retrying either produces load
 without progress.
 
@@ -634,13 +661,13 @@ code reports the transport outcome and nothing else, and a `Failed`, `Invalid Ar
 `Not Supported` status is indistinguishable from `Success`. **Semantic acceptance of a subscription
 cannot be established from the return code**, and a test must not assert it from one. The only
 evidence that a subscription is live is a subsequent `publishEvent` for the subscribed parameter;
-[`halSpecDetailed.md`](halSpecDetailed.md) states the limitation with its source lines and the
+[halSpecDetailed.md](halSpecDetailed.md) states the limitation with its source lines and the
 workaround for a caller that needs the status sooner. This is a limitation of the transport API, not
 of the schemas — the schemas bind `result` to `subscribeEvent` correctly and the four statuses above
 apply to it unchanged.
 
 Per-status detail, including the exact enumeration definition, is in
-[`halSpecDetailed.md`](halSpecDetailed.md) and is not duplicated here.
+[halSpecDetailed.md](halSpecDetailed.md) and is not duplicated here.
 
 **Vendor obligation.** A server must choose the status that describes the actual outcome rather than
 defaulting to `Failed` for every refusal, because the caller's correct response differs per value —
@@ -763,7 +790,7 @@ data describing who a subscriber called and when. The
 requirements below are therefore **normative for this interface**, and they bind the vendor
 implementation and the `RDK-B` caller equally. They are stated here because neither schema declares
 a redaction helper, a sensitivity marker or an opaque credential type, so nothing enforces them
-mechanically. [`halSpecDetailed.md`](halSpecDetailed.md) names the exact parameter definitions each
+mechanically. [halSpecDetailed.md](halSpecDetailed.md) names the exact parameter definitions each
 rule applies to, per variant.
 
 - **No credential is written to log output at any severity.** Neither a vendor implementation nor a
@@ -813,7 +840,7 @@ rule applies to, per variant.
 
 *Derived from `hal_schema/telcovoice_hal_schema_v1.json` and
 `hal_schema/telcovoice_hal_schema_v2.json` (the credential and subscriber-data parameter
-definitions, enumerated per variant in [`halSpecDetailed.md`](halSpecDetailed.md)), and from
+definitions, enumerated per variant in [halSpecDetailed.md](halSpecDetailed.md)), and from
 `source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:620-623` together with the unguarded traces
 at `:229`, `:238` and `:701` (the scope of the suppression that exists).*
 
@@ -879,7 +906,7 @@ latency bound must impose its own:
 ### Quality Control
 
 **This repository names no documentation owner, and this specification states that rather than
-inventing one.** There is no `CODEOWNERS` file anywhere in the repository, and `CONTRIBUTING.md`
+inventing one.** There is no `CODEOWNERS` file anywhere in the repository, and [CONTRIBUTING.md](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/CONTRIBUTING.md)
 names no maintainer group — it states only that contributions are made by forking and opening a
 pull request, and that a contributor must have signed the RDK Contributor License Agreement. No
 handle from another repository is borrowed to fill the gap, because an owner who has not accepted
@@ -906,7 +933,7 @@ rather than from a calendar:
 - `config/telcovoice_manager_conf.json` \- the schema path and the port, wherever they appear.
 - `source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h` and `.c` \- the initialization ordering,
   the retry bound, the timeout constant and the call-site counts.
-- `CHANGELOG.md` and the repository's tags \- `Version History`.
+- [CHANGELOG.md](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/CHANGELOG.md) and the repository's tags \- `Version History`.
 - `NOTICE` \- `Licensing`.
 
 **Recommended verification practice.** The following are stated as recommendations for an
@@ -975,8 +1002,8 @@ than restated so that the two cannot drift. The transport's own wire vocabulary 
 backlog constants come from the same revision.
 
 **The `json-c` dependency, stated in both of its forms because either alone misleads.** The
-transport library declares its dependency as **`json-c (0.11)`**, which is the **declared
-minimum**; its upstream native build, however, is exercised against the **`json-c-0.15-20200726`**
+transport library declares its dependency as <b>`json-c (0.11)`</b>, which is the **declared
+minimum**; its upstream native build, however, is exercised against the <b>`json-c-0.15-20200726`</b>
 revision. An integrator who reads only the first will under-provision relative to what upstream
 actually tests; one who reads only the second will over-state what the library requires. Both
 numbers are therefore given here, each labelled with what it is.
@@ -1008,7 +1035,7 @@ and what each changes.
 ### Variability Management
 
 **The schema is versioned, and its version is not the caller's to change.** The envelope's `version` field
-is bound to the `schemaVersion` definition, a `const` of **`0.0.1`** in both shipped files. The
+is bound to the `schemaVersion` definition, a `const` of <b>`0.0.1`</b> in both shipped files. The
 schema states in that definition's own description that the value must not be modified and that HAL
 operation cannot be performed without the correct supported version. Each schema file additionally
 carries a top-level instruction that its contents must not be modified, and that the RDK community
@@ -1083,10 +1110,10 @@ Three consequences a caller must plan for:
   the surface that holds across both variants.
 - **Shared keys are not automatically identical.** Some definitions present in both files differ in
   datatype or constraint between them rather than merely existing in both, so even a shared path may
-  need a different value domain per variant. [`halSpecDetailed.md`](halSpecDetailed.md) records each
+  need a different value domain per variant. [halSpecDetailed.md](halSpecDetailed.md) records each
   divergence key by key; they are not restated here, so that there is one place to correct if the
   schemas move.
-- **`v2`-only datatypes exist.** The `v2` schema alone defines a hexadecimal string type and applies
+- <b>`v2`-only datatypes exist.</b> The `v2` schema alone defines a hexadecimal string type and applies
   it to the five `DECT` identity and provisioning parameters. A `v1` deployment has no `hexBinary`
   parameter at all.
 
@@ -1124,7 +1151,7 @@ contract, and a message bearing any other value is invalid. `version` is likewis
 They name data model paths — `Device.Services.VoiceService.1.X_RDK_Status` and the like — inside a
 `params` array, and the schema validates each entry against a definition that pins the path, its
 datatype and its value domain. This is what replaces a C HAL's function signature, and it is why the
-per-parameter reference in [`halSpecDetailed.md`](halSpecDetailed.md) is the analogue of inline API
+per-parameter reference in [halSpecDetailed.md](halSpecDetailed.md) is the analogue of inline API
 documentation for this interface.
 
 #### Object Lifecycles
@@ -1189,7 +1216,7 @@ documentation for this interface.
 
 For a C HAL this topic lists the enumerations, structures and macros a caller must construct or
 interpret. The equivalents here are schema definitions, and they fall into five groups. The complete
-per-definition inventory is in [`halSpecDetailed.md`](halSpecDetailed.md); what follows are the
+per-definition inventory is in [halSpecDetailed.md](halSpecDetailed.md); what follows are the
 shapes a caller must be able to build and read.
 
 **The envelope.** Four required fields, each bound to a definition rather than declared inline:
@@ -1209,8 +1236,8 @@ shapes a caller must be able to build and read.
 | `Result` | `result` | An object with a single `Status` field, `additionalProperties: false`, `Status` required. |
 | `SchemaInfo` | `getSchemaResponse` | An object with a single `FilePath` field, `additionalProperties: false`, `FilePath` required, matching the path expression `^(.+)/([^/]+)$`. **Server-supplied and untrusted — see the note below.** |
 
-**`SchemaInfo.FilePath` is the one field in this contract whose value comes from the vendor server
-and looks like something a caller might act on. It must be compared, never dereferenced.** The
+<b>`SchemaInfo.FilePath` is the one field in this contract whose value comes from the vendor server
+and looks like something a caller might act on. It must be compared, never dereferenced.</b> The
 expression `^(.+)/([^/]+)$` requires only a slash with something on each side of it: it admits `..`
 segments, an absolute path anywhere in the filesystem, a symbolic link, a device node and embedded
 whitespace, so validating a `getSchemaResponse` says nothing about the safety of the string it
@@ -1222,7 +1249,7 @@ never from a server reply [`json_hal_common.c:307`, `:322`]. A caller must not o
 resolve, canonicalise or shell out to the returned value, must not derive a new path from it, and
 must not adopt it in place of its own configured path. On mismatch it fails closed and reports a
 deployment disagreement, and it reports the configured path rather than echoing the received string,
-which is server-controlled text. [`halSpecDetailed.md`](halSpecDetailed.md) states the rule with the
+which is server-controlled text. [halSpecDetailed.md](halSpecDetailed.md) states the rule with the
 exchange it applies to.
 
 **Required fields per `params` entry, which differ by action and are easy to get wrong:**
@@ -1266,7 +1293,7 @@ state-bearing at all.
 
 This topic is the boundary between the overview above and the protocol depth below. A reader who came
 for an orientation can stop here; a reader with a protocol question starts here and continues into
-[`halSpecDetailed.md`](halSpecDetailed.md), which carries every parameter definition, every object
+[halSpecDetailed.md](halSpecDetailed.md), which carries every parameter definition, every object
 path, the enumeration appendix and worked message exchanges.
 
 **Where a C HAL has functions, this interface has eleven action values.** They are the complete
@@ -1289,8 +1316,8 @@ callable surface, and both schemas declare the same eleven in the same order:
 **Eight actions bind a payload; three travel as the bare envelope.** The schema attaches a
 conditional payload requirement to `setParameters`, `getParameters`, `deleteObject`,
 `subscribeEvent`, `publishEvent`, `result`, `getSchemaResponse` and `getParametersResponse`. The three
-with no payload binding are **`getSchema`, `getActiveSubscriptions` and
-`getActiveSubscriptionsResponse`** — for these the four envelope fields are the entire message, and
+with no payload binding are <b>`getSchema`, `getActiveSubscriptions` and
+`getActiveSubscriptionsResponse`</b> — for these the four envelope fields are the entire message, and
 `getSchema`'s own definition states that the action has no parameter list.
 
 **The bare envelope means something different for `getSchema` than for the two subscription
@@ -1304,14 +1331,14 @@ or parses a list from the reply. `Asynchronous Notification Model` states the
 consequence for a caller.
 
 **There is no `setParametersResponse`.** This is the single most commonly mis-stated fact about this
-protocol, so it is stated plainly: a write is acknowledged by the generic **`result`** action
+protocol, so it is stated plainly: a write is acknowledged by the generic <b>`result`</b> action
 carrying `Result.Status`. A caller waiting for an action name symmetrical with `setParameters` will
 wait for a message that the contract does not define. Three of the eleven actions are answered by
 `result` rather than by a dedicated response: `setParameters`, `subscribeEvent` and — were it
 usable — `deleteObject`. By contrast `getParameters`, `getSchema` and `getActiveSubscriptions` each
 have a matching named response.
 
-**`deleteObject` is not usable under either shipped schema.** Its payload definition carries an empty
+<b>`deleteObject` is not usable under either shipped schema.</b> Its payload definition carries an empty
 `anyOf`, a construct no instance can satisfy, so no schema-valid delete message exists to send. It is
 listed above for completeness because it is present in the enumeration a server must be able to
 parse, but it must be treated as unsupported: a caller should not attempt object deletion through
@@ -1320,9 +1347,9 @@ than a design decision, and it is recorded rather than worked around — the sch
 and editing them is outside the scope of this documentation.
 
 **The object tree.** All voice parameters in both schemas live under
-**`Device.Services.VoiceService`**, addressed per instance as
+<b>`Device.Services.VoiceService`</b>, addressed per instance as
 `Device.Services.VoiceService.{i}.` and below. Exactly one definition sits outside that tree, in both
-variants: **`Device.Services.VoiceHalInit`**, the boolean initialization flag written during
+variants: <b>`Device.Services.VoiceHalInit`</b>, the boolean initialization flag written during
 client bring-up — and the discrepancy affecting the name the manager actually sends for it is
 recorded in `Initialization and Startup`.
 
@@ -1336,7 +1363,7 @@ of the surface, are the `X_RDK_*` extensions — chiefly `X_RDK_Enable`, `X_RDK_
 
 **Per-parameter detail is not repeated here.** Every parameter's path, datatype, value constraint,
 access and description — 353 parameter definitions in `v1` and 776 in `v2` — is in
-[`halSpecDetailed.md`](halSpecDetailed.md), together with the object index, the enumeration appendix,
+[halSpecDetailed.md](halSpecDetailed.md), together with the object index, the enumeration appendix,
 worked exchanges for each usable workflow, and the record of contract defects.
 
 ### Sequence Diagram
@@ -1374,7 +1401,7 @@ sequenceDiagram
 
 Three details in that exchange are worth drawing out, because each is a place implementations
 diverge. The first write is the initialization flag, so a server sees `setParameters` before anything
-else. That write is answered by **`result`**, not by a response action named after the request. And
+else. That write is answered by <b>`result`</b>, not by a response action named after the request. And
 the read is answered by `getParametersResponse`, which is one of the actions that *does* have a
 dedicated name — the asymmetry is in the contract, not in the diagram.
 
@@ -1463,7 +1490,7 @@ in the expectation that the vendor will announce every intermediate value — th
 not subscribable (`Asynchronous Notification Model`), so intermediate values may be missed between
 reads. The reliable way to establish the current state is to read `X_RDK_Status`.
 
-**`Error` has no specified exit.** Nothing in either schema, either data-model description or the
+<b>`Error` has no specified exit.</b> Nothing in either schema, either data-model description or the
 manager source states how a service leaves `Error`: there is no recovery action, no reset-to-running
 transition and no parameter reporting a recovery in progress. A caller confronted with `Error` has
 the ordinary controls available to it — writing `Disable` and then `Enable`, or the separate
@@ -1474,7 +1501,7 @@ and this specification does not claim it does.
 or a `DECT` handset is what a reader may expect to find here, but neither schema constrains it:
 those statuses are unconstrained strings with no enumerated value set, so there is no transition set
 to draw and drawing one would mean inventing both the states and the edges. Registration status is
-read as a value like any other parameter, and [`halSpecDetailed.md`](halSpecDetailed.md) records each
+read as a value like any other parameter, and [halSpecDetailed.md](halSpecDetailed.md) records each
 such parameter with the constraint the schema actually places on it.
 
 **Transport state is not shown either**, because it is orthogonal: the socket may be disconnected in

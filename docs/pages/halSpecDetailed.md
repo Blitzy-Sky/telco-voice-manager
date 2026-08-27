@@ -2,15 +2,15 @@
 
 This document is the per-parameter and per-action reference for the Telco Voice `JSON` HAL. For a
 `C` HAL the equivalent detail is carried by inline Doxygen inside a header; this interface has no
-header, so the detail is carried here. [`halSpec.md`](halSpec.md) in this folder is the
+header, so the detail is carried here. [halSpec.md](halSpec.md) in this folder is the
 specification proper — architecture, runtime requirements, non-functional requirements and the
 interface overview — and this document is the reference it points at.
 
 ## Purpose and how to read it
 
 Everything below is derived from the two schema files this repository ships,
-[`hal_schema/telcovoice_hal_schema_v1.json`](../../hal_schema/telcovoice_hal_schema_v1.json) and
-[`hal_schema/telcovoice_hal_schema_v2.json`](../../hal_schema/telcovoice_hal_schema_v2.json).
+[`hal_schema/telcovoice_hal_schema_v1.json`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/hal_schema/telcovoice_hal_schema_v1.json) and
+[`hal_schema/telcovoice_hal_schema_v2.json`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/hal_schema/telcovoice_hal_schema_v2.json).
 Neither file is modified by this documentation, and every count, type, constraint, access marking
 and description reproduced here is taken from them mechanically rather than transcribed.
 
@@ -39,10 +39,10 @@ from these publications and no others:
 | `telcovoice_hal_schema_v1.json` | `TR-104` Issue 1 — the **issue** is established, the minor revision within it is **not**, for the reason given below the table | [tr-104-1-0-0](https://cwmp-data-models.broadband-forum.org/tr-104-1-0-0.html); machine-readable file `tr-104-1-0-0-full.xml` on the same host |
 | `telcovoice_hal_schema_v2.json` | `TR-104` Issue 2, the revision published as `tr-104-2-0-1` | [tr-104-2-0-1-cwmp](https://cwmp-data-models.broadband-forum.org/tr-104-2-0-1-cwmp.html), machine-readable [tr-104-2-0-1-cwmp-full.xml](https://cwmp-data-models.broadband-forum.org/tr-104-2-0-1-cwmp-full.xml) |
 
-Stated as the model publications name themselves: the `v2` schema is **`VoiceService:2.0` as published
-in `tr-104-2-0-1`**, and the `v1` schema is **`TR-104` Issue 1, whose earliest compatible publication
+Stated as the model publications name themselves: the `v2` schema is <b>`VoiceService:2.0` as published
+in `tr-104-2-0-1`</b>, and the `v1` schema is <b>`TR-104` Issue 1, whose earliest compatible publication
 is `VoiceService:1.0` (`tr-104-1-0-0`) and for which `VoiceService:1.1` (`tr-104-1-1-0`) is equally
-consistent**. The asymmetry is the point and it is not a hedge: one comparison narrows to a single
+consistent</b>. The asymmetry is the point and it is not a hedge: one comparison narrows to a single
 publication and the other narrows only to the issue, and the next paragraph gives the figures behind
 each. The two machine-readable files are named differently because `TR-104` Issue 1 predates the
 `CWMP`/`USP` split in the Broadband Forum's publication scheme: the Issue 1 model is served as
@@ -91,9 +91,9 @@ schema says less than the model, and it is already recorded as a defect class.
 **The `X_RDK_*` rule.** 28 `v1` parameters and 42 `v2` parameters are vendor extensions with **no
 counterpart in the identified revision**, so the model establishes nothing about them. Their type,
 writability, character restrictions and shipped defaults come instead from
-[`config/RdkTelcoVoiceManager_v1.xml`](../../config/RdkTelcoVoiceManager_v1.xml),
-[`config/RdkTelcoVoiceManager_v2.xml`](../../config/RdkTelcoVoiceManager_v2.xml),
-[`config/telcovoice_config_default_v2.json`](../../config/telcovoice_config_default_v2.json) and the
+[`config/RdkTelcoVoiceManager_v1.xml`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/config/RdkTelcoVoiceManager_v1.xml),
+[`config/RdkTelcoVoiceManager_v2.xml`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/config/RdkTelcoVoiceManager_v2.xml),
+[`config/telcovoice_config_default_v2.json`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/config/telcovoice_config_default_v2.json) and the
 setters under `source/TR-181/`, and any entry whose derivation used one of those says so. Where none
 of them establishes a meaning either, the entry says the semantic is underived rather than inferring
 it from the parameter's name.
@@ -106,6 +106,14 @@ it from the parameter's name.
 | `Type and Constraint` | The `type.const` wire type label, then the `value` constraint exactly as the schema states it — JSON type, enumerated members, numeric bounds, string length and pattern. Where the schema states no constraint the cell says so. |
 | `Access` | Read-Only or Read-Write, derived from membership of `setParameterSupportedList` or `setParameterOptionalList`, which is what a conforming server enforces, followed by the lists the key appears in. Where the schema's own `(Access = …)` marker disagrees with that membership the cell says so, and every such row is also collected under `Access marker disagreements`. |
 | `Description` | The schema's `description`, less the access marker. |
+
+**A pipe inside a pattern is written `\|`, and the schema's own pattern carries a bare `|`.** A
+Markdown table cell splits on an unescaped pipe, so every alternation in the tables below is escaped
+to keep the row intact, and the documentation tool renders that backslash as part of the pattern.
+The escape is a property of the table, not of the contract: when copying a pattern out of a cell,
+delete the backslash before each `|` — leaving it in place turns an alternation into a literal pipe
+character. Every other backslash in a pattern, including each `\.` and each `\d`, belongs to the
+regular expression and is reproduced exactly as the schema states it.
 
 **Counts, per file.** Each file is a distinct contract a deployment may load, so a definition
 present in both is counted once per file.
@@ -138,7 +146,7 @@ set-list membership or description.
 ### The envelope
 
 Every message in both directions is a single `JSON` object. The schema roots of both files declare
-four properties and require all four [`hal_schema/telcovoice_hal_schema_v2.json`](../../hal_schema/telcovoice_hal_schema_v2.json):
+four properties and require all four [`hal_schema/telcovoice_hal_schema_v2.json`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/hal_schema/telcovoice_hal_schema_v2.json):
 
 | Field | Constraint | Notes |
 |---|---|---|
@@ -154,7 +162,7 @@ members no schema defines — validates. And the payload members `params`, `Resu
 are not root properties at all; they are attached conditionally by the `allOf` blocks below, which
 is why an action with no such block accepts anything, or nothing, in their place.
 
-**`reqId` has a 63-byte usable boundary at the server, and the schema does not bound it.** The
+<b>`reqId` has a 63-byte usable boundary at the server, and the schema does not bound it.</b> The
 pattern `^[0-9]+$` constrains the character set and nothing else: no `maxLength`, so a digit string
 of any length is a conforming `reqId`. The server side of the transport is narrower. Request
 dispatch declares `char req_id[BUF_64]`
@@ -277,11 +285,11 @@ the revision this workspace records for it,
   least half the remaining bytes ends the loop with the tail unsent and still reports success
   [`tcp_client.c:59-79`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_client.c#L59-L79),
   so two concurrent writers can interleave bytes on a stream that carries no framing to separate
-  them. **`reqId` gives correlation, not thread safety — and it gives correlation only while the
-  caller supplies the serialisation.** A caller must keep at most one thread inside the **complete
+  them. <b>`reqId` gives correlation, not thread safety — and it gives correlation only while the
+  caller supplies the serialisation.</b> A caller must keep at most one thread inside the **complete
   submission** per client instance, covering identifier acquisition, list append and socket write in
   one critical section; guarding only the write leaves the counter and the list exposed.
-  `Threading Model` in [`halSpec.md`](halSpec.md) records that this manager reaches the
+  `Threading Model` in [halSpec.md](halSpec.md) records that this manager reaches the
   unsynchronised case from its voice reporting thread.
 - **The reply wait is bounded and clamped.** The default wait is 40 ticks of 250 ms, approximately
   ten seconds, stated as such at
@@ -442,6 +450,39 @@ so a helper-composed `getActiveSubscriptions` is schema-valid only because nothi
 `params` for that action. And an unknown member is rejected inside a payload and accepted at the
 root, so envelope-level extension is silently permitted while payload-level extension is not.
 
+<b>`uniqueItems` does not make a parameter appear at most once.</b> Every action that binds `params` in
+both variants declares `uniqueItems` alongside `minItems` 1, and the `Payload binding per action` table
+records it. What the keyword actually constrains is easy to over-read: it is a whole-object comparison,
+so it rejects only a byte-identical repeat and says nothing about the `name` member. Where an entry
+carries content beyond `name`, one array may name the same parameter twice with different content and
+validate. Measured per variant with a draft-07 validator:
+
+| Case | `v1` | `v2` |
+| --- | --- | --- |
+| `setParameters`, one parameter named twice with two different values | **valid** | **valid** |
+| `getParametersResponse`, one parameter named twice with two different values | **valid** | not measurable — the read path raises first, see `D2` |
+| `subscribeEvent`, one parameter named twice with `onChange` and `onChangeSync` | **valid** | **valid** |
+| `publishEvent`, one parameter named twice with two different values | **valid** | **valid** |
+| `getParameters`, one parameter named twice | invalid — `uniqueItems` | not measurable — see `D2` |
+| any of the above repeated byte-for-byte | invalid — `uniqueItems` | invalid — `uniqueItems` |
+
+`v1` was exercised on `Device.Services.VoiceService.1.VoiceProfile.1.Enable`, `v2` on
+`Device.Services.VoiceService.1.ISDN.BRI.1.Enable`, and both event rows on the single subscribable
+parameter `Device.Services.VoiceService.1.X_RDK_Firewall_Rule_Data`. `getParameters` and `deleteObject`
+are the only actions the keyword protects, and they are protected incidentally: their entry is `name`
+alone, so two entries naming one parameter cannot differ and are caught as identical. On `v2`'s read
+path the question cannot be put to a validator at all, because the dangling reference of `D2` raises
+before a verdict is reached — so the ambiguity is present there too and simply unmeasurable by that
+route.
+
+**The contract does not resolve the collision, and neither does the reply.** `params` is unordered as
+far as the schema is concerned, no keyword states that a later entry supersedes an earlier one, and
+`result` carries a single `Status` for the whole message rather than one per entry — so a caller that
+sends two values for one parameter cannot learn from the contract or from the acknowledgement which was
+applied. A caller must de-duplicate by `name` before dispatch; a vendor must settle the behaviour
+explicitly and record it outside this contract; and a test author must not read schema validity as
+semantic well-formedness here, since a validating message can carry an undefined meaning.
+
 ### The transport helpers, and where they stop short
 
 A reader implementing against this interface will reach it through `json-hal-library`, so the limits
@@ -550,8 +591,8 @@ to reject.
 
 | Item | Value | Established by |
 |---|---|---|
-| Client configuration file | `/etc/rdk/conf/telcovoice_manager_conf.json` | [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h:98`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h) |
-| Schema path the client reads from that file | `/etc/rdk/schemas/telcovoice_hal_schema.json` | [`config/telcovoice_manager_conf.json`](../../config/telcovoice_manager_conf.json) |
+| Client configuration file | `/etc/rdk/conf/telcovoice_manager_conf.json` | [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h:98`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h#L98) |
+| Schema path the client reads from that file | `/etc/rdk/schemas/telcovoice_hal_schema.json` | [`config/telcovoice_manager_conf.json`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/config/telcovoice_manager_conf.json) |
 | Server `TCP` port | 20104 | the same file |
 | `module` value on the wire | `voicehal` | `moduleName` `const` in both schemas |
 | `version` value on the wire | `0.0.1` | `schemaVersion` `const` in both schemas |
@@ -568,7 +609,7 @@ under `Transport and Protocol` sets out what the loader requires of that file. T
 must carry: which contract is in force on a device is not discoverable from this repository, and the
 data model a built manager drives — `TR104V1` or `TR104V2`, readable at runtime through
 `Device.X_RDK_TelcoVoice.DatamodelVersion`
-[`source/TR-181/middle_layer_src/telcovoicemgr_dml_telcovoice.c:113-119`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_telcovoice.c) —
+[`source/TR-181/middle_layer_src/telcovoicemgr_dml_telcovoice.c:113-119`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_telcovoice.c#L113-L119) —
 is a statement about the manager's build, not proof of which schema file the vendor server loaded.
 Where the two variants disagree, the file the server loaded governs, and every such disagreement is
 listed below.
@@ -616,18 +657,18 @@ Ten parameter definitions — one in `v1` and nine in `v2` — declare `properti
 `additionalProperties: false`. Every one of the ten is a date or time value, which is plainly where
 the omission originated.
 
-| Variant | Definition key | TR-181 path | Wire type label | Value constraint |
+| Variant | Definition key | TR-181 path | Value constraint | List membership |
 |---|---|---|---|---|
-| v1 | `voiceServiceVoiceProfileLineSessionSessionStartTime` | `Device.Services.VoiceService.{i}.VoiceProfile.{i}.Line.{i}.Session.{i}.SessionStartTime` | absent | absent |
-| v2 | `voiceServiceCallLogSessionStart` | `Device.Services.VoiceService.{i}.CallLog.{i}.Session.{i}.Start` | absent | absent |
-| v2 | `voiceServiceCallLogStart` | `Device.Services.VoiceService.{i}.CallLog.{i}.Start` | absent | absent |
-| v2 | `voiceServiceDECTPortableLastUpdateDateTime` | `Device.Services.VoiceService.{i}.DECT.Portable.{i}.LastUpdateDateTime` | absent | absent |
-| v2 | `voiceServiceDECTPortableSubscriptionTime` | `Device.Services.VoiceService.{i}.DECT.Portable.{i}.SubscriptionTime` | absent | absent |
-| v2 | `voiceServiceInterworkFirewallRuleSetTime` | `Device.Services.VoiceService.{i}.Interwork.{i}.FirewallRuleSetTime` | absent | absent |
-| v2 | `voiceServiceInterworkInterworkingRuleSetTime` | `Device.Services.VoiceService.{i}.Interwork.{i}.InterworkingRuleSetTime` | absent | absent |
-| v2 | `voiceServiceInterworkMapLastTime` | `Device.Services.VoiceService.{i}.Interwork.{i}.Map.{i}.LastTime` | absent | absent |
-| v2 | `voiceServiceSIPClientContactExpireTime` | `Device.Services.VoiceService.{i}.SIP.Client.{i}.Contact.{i}.ExpireTime` | absent | absent |
-| v2 | `voiceServiceSIPRegistrarAccountContactExpireTime` | `Device.Services.VoiceService.{i}.SIP.Registrar.{i}.Account.{i}.Contact.{i}.ExpireTime` | absent | absent |
+| v1 | `voiceServiceVoiceProfileLineSessionSessionStartTime` | `Device.Services.VoiceService.{i}.VoiceProfile.{i}.Line.{i}.Session.{i}.SessionStartTime` | type label absent, constraint absent | `getParameterSupportedList` |
+| v2 | `voiceServiceCallLogSessionStart` | `Device.Services.VoiceService.{i}.CallLog.{i}.Session.{i}.Start` | type label absent, constraint absent | `getParameterSupportedList` |
+| v2 | `voiceServiceCallLogStart` | `Device.Services.VoiceService.{i}.CallLog.{i}.Start` | type label absent, constraint absent | `getParameterSupportedList` |
+| v2 | `voiceServiceDECTPortableLastUpdateDateTime` | `Device.Services.VoiceService.{i}.DECT.Portable.{i}.LastUpdateDateTime` | type label absent, constraint absent | `getParameterOptionalList` |
+| v2 | `voiceServiceDECTPortableSubscriptionTime` | `Device.Services.VoiceService.{i}.DECT.Portable.{i}.SubscriptionTime` | type label absent, constraint absent | `getParameterOptionalList` |
+| v2 | `voiceServiceInterworkFirewallRuleSetTime` | `Device.Services.VoiceService.{i}.Interwork.{i}.FirewallRuleSetTime` | type label absent, constraint absent | `getParameterOptionalList` and `setParameterOptionalList` |
+| v2 | `voiceServiceInterworkInterworkingRuleSetTime` | `Device.Services.VoiceService.{i}.Interwork.{i}.InterworkingRuleSetTime` | type label absent, constraint absent | `getParameterOptionalList` and `setParameterOptionalList` |
+| v2 | `voiceServiceInterworkMapLastTime` | `Device.Services.VoiceService.{i}.Interwork.{i}.Map.{i}.LastTime` | type label absent, constraint absent | `getParameterOptionalList` |
+| v2 | `voiceServiceSIPClientContactExpireTime` | `Device.Services.VoiceService.{i}.SIP.Client.{i}.Contact.{i}.ExpireTime` | type label absent, constraint absent | `getParameterOptionalList` |
+| v2 | `voiceServiceSIPRegistrarAccountContactExpireTime` | `Device.Services.VoiceService.{i}.SIP.Registrar.{i}.Account.{i}.Contact.{i}.ExpireTime` | type label absent, constraint absent | `getParameterSupportedList` |
 
 **What this means for a caller, and it is stronger than "the constraint is missing".** Because these
 definitions declare no `value` member and forbid undeclared members, a `params` entry naming one of
@@ -640,10 +681,30 @@ them cannot carry a value at all. `getParametersResponse` and `setParameters` bo
 - a `getParametersResponse` omitting the value is **invalid** too, because the action requires it;
 - a `setParameters` request naming it is invalid for the same reason.
 
-All ten appear in `getParameterSupportedList`, so the contract advertises them as readable while
-providing no schema-valid way to answer a read. They are recorded under `Contract Defects` for that
-reason. A caller must not build a test or a feature on a value returned for any of them, and a
-server implementer should expect a validating peer to reject its answer.
+**Where the ten are advertised, taken from the lists themselves rather than from the markers.** All
+ten appear in a read list, and which read list decides whether a caller may treat the read as
+mandatory, so the split is stated exactly. **Four** are in `getParameterSupportedList`:
+`voiceServiceVoiceProfileLineSessionSessionStartTime` in `v1`, and `voiceServiceCallLogSessionStart`,
+`voiceServiceCallLogStart` and `voiceServiceSIPRegistrarAccountContactExpireTime` in `v2`. The other
+**six**, all in `v2`, are in `getParameterOptionalList`:
+`voiceServiceDECTPortableLastUpdateDateTime`, `voiceServiceDECTPortableSubscriptionTime`,
+`voiceServiceInterworkFirewallRuleSetTime`, `voiceServiceInterworkInterworkingRuleSetTime`,
+`voiceServiceInterworkMapLastTime` and `voiceServiceSIPClientContactExpireTime`. Not one of the ten
+is in `setParameterSupportedList`. So the contract advertises every one of them as readable — four as
+a required read and six as an optional one — while providing no schema-valid way to answer a read of
+any of them. A caller must not promote one of the six optional reads to a required one, must not
+build a test or a feature on a value returned for any of the ten, and a server implementer should
+expect a validating peer to reject its answer.
+
+**Two of the ten are also reachable writes that no instance can satisfy.**
+`voiceServiceInterworkFirewallRuleSetTime` and `voiceServiceInterworkInterworkingRuleSetTime` appear
+in `setParameterOptionalList` as well as in `getParameterOptionalList`, so a `setParameters` request
+naming either one is admitted to the write path rather than rejected as a parameter the contract does
+not accept for writing — and then fails, because that action requires the `value` these two
+definitions forbid. The distinction has consequences for a test author: an unsupported write is one
+the interface declines by name, whereas these two are writes the interface advertises and which no
+conforming instance can express, so a suite expecting "this parameter is not writable" is handed a
+schema violation instead. All ten are recorded under `Contract Defects` for these reasons.
 
 ### String values with no declared length bound, and the helper's 2047-byte ceiling
 
@@ -926,12 +987,12 @@ being read correctly.
 
 | Object definition key | `v1` | `v2` |
 |---|---|---|
-| `voiceService` | **`v1`**: "The top-level object for VoIP CPE." - `getParameterSupportedList` | **`v2`**: "The top-level object for CPE with voice capabilities." - `getParameterSupportedList` |
-| `voiceServiceCapabilities` | **`v1`**: "The overall capabilities of the VoIP CPE." - `getParameterSupportedList` | **`v2`**: identical text - `getParameterSupportedList` |
-| `voiceServiceCapabilitiesH323` | **`v1`**: "H.323-specific capabilities." - `getParameterSupportedList` | **`v2`**: "H.323-specific capabilities (as defined in [H.323])." - `getParameterSupportedList` |
-| `voiceServiceCapabilitiesMGCP` | **`v1`**: "MGCP-specific capabilities." - `getParameterSupportedList` | **`v2`**: "MGCP-specific capabilities (as defined in [RFC3435])." - `getParameterSupportedList` |
-| `voiceServiceCapabilitiesSIP` | **`v1`**: "SIP-specific capabilities." - **`getParameterSupportedList`** | **`v2`**: "SIP-specific capabilities (as defined in [RFC3261])." - **`getParameterOptionalList`** |
-| `voiceServiceX_RDK_Debug` | **`v1`**: "Object associated with voice debug parameters." - `getParameterOptionalList` and `setParameterOptionalList` | **`v2`**: identical text - same two lists |
+| `voiceService` | <b>`v1`</b>: "The top-level object for VoIP CPE." - `getParameterSupportedList` | <b>`v2`</b>: "The top-level object for CPE with voice capabilities." - `getParameterSupportedList` |
+| `voiceServiceCapabilities` | <b>`v1`</b>: "The overall capabilities of the VoIP CPE." - `getParameterSupportedList` | <b>`v2`</b>: identical text - `getParameterSupportedList` |
+| `voiceServiceCapabilitiesH323` | <b>`v1`</b>: "H.323-specific capabilities." - `getParameterSupportedList` | <b>`v2`</b>: "H.323-specific capabilities (as defined in [H.323])." - `getParameterSupportedList` |
+| `voiceServiceCapabilitiesMGCP` | <b>`v1`</b>: "MGCP-specific capabilities." - `getParameterSupportedList` | <b>`v2`</b>: "MGCP-specific capabilities (as defined in [RFC3435])." - `getParameterSupportedList` |
+| `voiceServiceCapabilitiesSIP` | <b>`v1`</b>: "SIP-specific capabilities." - <b>`getParameterSupportedList`</b> | <b>`v2`</b>: "SIP-specific capabilities (as defined in [RFC3261])." - <b>`getParameterOptionalList`</b> |
+| `voiceServiceX_RDK_Debug` | <b>`v1`</b>: "Object associated with voice debug parameters." - `getParameterOptionalList` and `setParameterOptionalList` | <b>`v2`</b>: identical text - same two lists |
 
 Each quoted string is the schema's `description` with its trailing `(Access = …)` marker removed, as
 everywhere else in this document. Every marker is `Read-Only` except `voiceServiceX_RDK_Debug`'s,
@@ -1002,7 +1063,7 @@ anything.
   remaining key-exchange members, `RSA` and `DSS` establish no forward secrecy at all, and `DHE-RSA`
   and `DHE-DSS` establish it only over finite-field groups whose commonly deployed parameter sizes
   are no longer adequate.
-- **`v1` cannot express a compliant suite through this contract.** In
+- <b>`v1` cannot express a compliant suite through this contract.</b> In
   `telcovoice_hal_schema_v1.json` all three TLS enumerations are legacy-only:
   `Device.Services.VoiceService.{i}.Capabilities.SIP.TLSEncryptionProtocols` admits `Null`, `RC4`,
   `RC2`, `DES` and `3DES` and no modern cipher;
@@ -1018,7 +1079,7 @@ anything.
   its members are `Null`, `Static`, `SDP` and `IKE`, of which `SDP` protects the media key only when
   the signalling path that carries it is itself protected, and `IKE` is the one member that
   establishes media keys in its own authenticated exchange.
-- **`H.235` authentication methods.**
+- <b>`H.235` authentication methods.</b>
   `Device.Services.VoiceService.{i}.Capabilities.H323.H235AuthenticationMethods` reports the same six
   members in both variants. `dhExch` on its own is an unauthenticated Diffie-Hellman exchange and is
   defeated by an in-path attacker, and `pwdSymEnc` and `pwdHash` rest on a shared password and on the
@@ -1040,7 +1101,7 @@ anything.
 | `Device.Services.VoiceService.{i}.Capabilities.DSCPCoupled`<br>`voiceServiceCapabilitiesDSCPCoupled`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterSupportedList`) | If true indicates that the CPE is constrained such that transmitted call control packets use the same DSCP marking as transmitted RTP packets. |
 | `Device.Services.VoiceService.{i}.Capabilities.DigitMap`<br>`voiceServiceCapabilitiesDigitMap`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterOptionalList`) | Support for a configurable digit map string. |
 | `Device.Services.VoiceService.{i}.Capabilities.EthernetTaggingCoupled`<br>`voiceServiceCapabilitiesEthernetTaggingCoupled`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterSupportedList`) | If true indicates that the CPE is constrained such that transmitted call control packets use the same Ethernet tagging (VLAN ID Ethernet Priority) as transmitted RTP packets. |
-| `Device.Services.VoiceService.{i}.Capabilities.FacilityActions`<br>`voiceServiceCapabilitiesFacilityActions`<br>*v2 only* | `string` - JSON string; maxLength 256; pattern `^(AA_REGISTER\|AA_ERASE\|AA_INTERROGATE\|CA_ACTIVATE\|CCBS_ACTIVATE\|CCBS_DEACTIVATE\|CCBS_INTERROGATE\|CCNR_ACTIVATE\|CCNR_DEACTIVATE\|CCNR_INTERROGATE\|CFB_REGISTER\|CFB_ACTIVATE\|CFB_DEACTIVATE\|CFB_ERASE\|CFB_INTERROGATE\|CFNR_REGISTER\|CFNR_ACTIVATE\|CFNR_DEACTIVATE\|CFNR_ERASE\|CFNR_INTERROGATE\|CFNR_TIMER\|CFT_ACTIVATE\|CFT_DEACTIVATE\|CFT_INTERROGATE\|CFU_REGISTER\|CFU_ACTIVATE\|CFU_DEACTIVATE\|CFU_ERASE\|CFU_INTERROGATE\|CLIR_ACTIVATE\|CLIR_DEACTIVATE\|CLIR_INTERROGATE\|CP_INVOKE\|CW_ACTIVATE\|CW_DEACTIVATE\|CW_INVOKE\|DND_ACTIVATE\|DND_DEACTIVATE\|DND_INTERROGATE\|EXT_INVOKE\|LINE_INVOKE\|MAILBOX_INVOKE\|OCB_ACTIVATE\|OCB_DEACTIVATE\|OCB_INTERROGATE\|PSO_ACTIVATE\|PW_SET\|SCF_ACTIVATE\|SCF_DEACTIVATE\|SCF_INTERROGATE\|SCREJ_ACTIVATE\|SCREJ_DEACTIVATE\|SCREJ_INTERROGATE\|SR_ACTIVATE\|SR_DEACTIVATE\|SR_INTERROGATE)(,(AA_REGISTER\|AA_ERASE\|AA_INTERROGATE\|CA_ACTIVATE\|CCBS_ACTIVATE\|CCBS_DEACTIVATE\|CCBS_INTERROGATE\|CCNR_ACTIVATE\|CCNR_DEACTIVATE\|CCNR_INTERROGATE\|CFB_REGISTER\|CFB_ACTIVATE\|CFB_DEACTIVATE\|CFB_ERASE\|CFB_INTERROGATE\|CFNR_REGISTER\|CFNR_ACTIVATE\|CFNR_DEACTIVATE\|CFNR_ERASE\|CFNR_INTERROGATE\|CFNR_TIMER\|CFT_ACTIVATE\|CFT_DEACTIVATE\|CFT_INTERROGATE\|CFU_REGISTER\|CFU_ACTIVATE\|CFU_DEACTIVATE\|CFU_ERASE\|CFU_INTERROGATE\|CLIR_ACTIVATE\|CLIR_DEACTIVATE\|CLIR_INTERROGATE\|CP_INVOKE\|CW_ACTIVATE\|CW_DEACTIVATE\|CW_INVOKE\|DND_ACTIVATE\|DND_DEACTIVATE\|DND_INTERROGATE\|EXT_INVOKE\|LINE_INVOKE\|MAILBOX_INVOKE\|OCB_ACTIVATE\|OCB_DEACTIVATE\|OCB_INTERROGATE\|PSO_ACTIVATE\|PW_SET\|SCF_ACTIVATE\|SCF_DEACTIVATE\|SCF_INTERROGATE\|SCREJ_ACTIVATE\|SCREJ_DEACTIVATE\|SCREJ_INTERROGATE\|SR_ACTIVATE\|SR_DEACTIVATE\|SR_INTERROGATE))*$` | Read-Only (`getParameterSupportedList`) | Comma-separated list of strings. |
+| `Device.Services.VoiceService.{i}.Capabilities.FacilityActions`<br>`voiceServiceCapabilitiesFacilityActions`<br>*v2 only* | `string` - JSON string; maxLength 256; `pattern` admitting a comma-separated sequence drawn from 56 upper-case facility-action labels, which `maxLength` caps at 36 items even at the shortest label - every label and the exact expression are under `Value patterns too long for a table cell` | Read-Only (`getParameterSupportedList`) | Comma-separated list of strings. |
 | `Device.Services.VoiceService.{i}.Capabilities.FaxPassThrough`<br>`voiceServiceCapabilitiesFaxPassThrough`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterSupportedList`) | Support for fax pass-through. |
 | `Device.Services.VoiceService.{i}.Capabilities.FaxT38`<br>`voiceServiceCapabilitiesFaxT38`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterSupportedList`) | Support for T.38 fax. |
 | `Device.Services.VoiceService.{i}.Capabilities.FileBasedRingGeneration`<br>`voiceServiceCapabilitiesFileBasedRingGeneration`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterOptionalList`) | Support for ring generation by file playback. |
@@ -1076,7 +1137,7 @@ anything.
 | `Device.Services.VoiceService.{i}.Capabilities.RTCP`<br>`voiceServiceCapabilitiesRTCP`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterSupportedList`) | Support for RTCP. |
 | `Device.Services.VoiceService.{i}.Capabilities.RTPRedundancy`<br>`voiceServiceCapabilitiesRTPRedundancy`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterSupportedList`) | Support for RTP payload redundancy as defined in [RFC2198]. |
 | `Device.Services.VoiceService.{i}.Capabilities.Regions`<br>`voiceServiceCapabilitiesRegions`<br>*v1 only* | `string` - JSON string; maxLength 256 | Read-Only (`getParameterSupportedList`) | Comma-separated list (maximum list length 256) of strings. |
-| `Device.Services.VoiceService.{i}.Capabilities.RingDescriptionsEditable`<br>`voiceServiceCapabilitiesRingDescriptionsEditable`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterOptionalList`) | If true indicates that VoiceProfile.{i}.Line.{i}.Ringer.Description. - **D13 - shipped text truncated at the model's markup.** Per `VoiceService:1.0` the sentence continues "and `...Ringer.Pattern.` are editable (if entries can be added, removed, or modified)", and applies only where `Capabilities.RingGeneration` is true. So the parameter reports whether ringer description and ringer pattern entries may be added, removed or modified. |
+| `Device.Services.VoiceService.{i}.Capabilities.RingDescriptionsEditable`<br>`voiceServiceCapabilitiesRingDescriptionsEditable`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterOptionalList`) | If true indicates that VoiceProfile.{i}.Line.{i}.Ringer.Description. - **D13 - shipped text truncated at the model's markup.** Per `VoiceService:1.0` the sentence continues "and ...Ringer.Pattern. are editable (if entries can be added, removed, or modified)", and applies only where `Capabilities.RingGeneration` is true. So the parameter reports whether ringer description and ringer pattern entries may be added, removed or modified. |
 | `Device.Services.VoiceService.{i}.Capabilities.RingFileFormats`<br>`voiceServiceCapabilitiesRingFileFormats`<br>*v1 + v2* | **v1:** `string` - JSON string; maxLength 256; pattern `^(MIDI\|SMAF\|RTTTL\|MP3\|WAV\|AMR)(,(MIDI\|SMAF\|RTTTL\|MP3\|WAV\|AMR))*$`<br>**v2:** `string` - JSON string; maxLength 256; pattern `^(MIDI\|SMAF\|RTTTL\|MP3\|WAV\|AMR)(,(MIDI\|SMAF\|RTTTL\|MP3\|WAV\|AMR))*$` | **v1:** Read-Only (`getParameterOptionalList`)<br>**v2:** Read-Only (`getParameterSupportedList`) | **v1:** Comma-separated list (maximum list length 256) of strings.<br>**v2:** Comma-separated list of strings. |
 | `Device.Services.VoiceService.{i}.Capabilities.RingGeneration`<br>`voiceServiceCapabilitiesRingGeneration`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterSupportedList`) | Support for ring generation. |
 | `Device.Services.VoiceService.{i}.Capabilities.RingPatternEditable`<br>`voiceServiceCapabilitiesRingPatternEditable`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterOptionalList`) | If true indicates that VoiceProfile.{i}.Line.{i}.Ringer.Pattern. - **D13 - shipped text truncated at the model's markup.** Per `VoiceService:1.0` the sentence continues "is editable (if entries can be added, removed, or modified)", and applies only where `Capabilities.PatternBasedRingGeneration` is true. So the parameter reports whether ringer pattern entries may be added, removed or modified. |
@@ -1111,7 +1172,7 @@ anything.
 | `Device.Services.VoiceService.{i}.Capabilities.SRTPEncryptionKeySizes`<br>`voiceServiceCapabilitiesSRTPEncryptionKeySizes`<br>*v1 only* | `string` - JSON string; maxLength 256 | Read-Only (`getParameterOptionalList`) | Comma-separated list (maximum list length 256) of unsigned integers. |
 | `Device.Services.VoiceService.{i}.Capabilities.SRTPKeyingMethods`<br>`voiceServiceCapabilitiesSRTPKeyingMethods`<br>*v1 only* | `string` - JSON string; maxLength 256; pattern `^(Null\|Static\|SDP\|IKE)(,(Null\|Static\|SDP\|IKE))*$` | Read-Only (`getParameterOptionalList`) | Comma-separated list (maximum list length 256) of strings. |
 | `Device.Services.VoiceService.{i}.Capabilities.SignalingProtocols`<br>`voiceServiceCapabilitiesSignalingProtocols`<br>*v1 only* | `string` - JSON string; maxLength 256 | Read-Only (`getParameterSupportedList`) | Comma-separated list (maximum list length 256) of strings. |
-| `Device.Services.VoiceService.{i}.Capabilities.ToneDescriptionsEditable`<br>`voiceServiceCapabilitiesToneDescriptionsEditable`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterOptionalList`) | If true indicates that VoiceProfile.{i}.Tone.Description. - **D13 - shipped text truncated at the model's markup.** Per `VoiceService:1.0` the sentence continues "and `...Tone.Pattern.` are editable (if entries can be added, removed, or modified)", and applies only where `Capabilities.ToneGeneration` is true. So the parameter reports whether tone description and tone pattern entries may be added, removed or modified. |
+| `Device.Services.VoiceService.{i}.Capabilities.ToneDescriptionsEditable`<br>`voiceServiceCapabilitiesToneDescriptionsEditable`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterOptionalList`) | If true indicates that VoiceProfile.{i}.Tone.Description. - **D13 - shipped text truncated at the model's markup.** Per `VoiceService:1.0` the sentence continues "and ...Tone.Pattern. are editable (if entries can be added, removed, or modified)", and applies only where `Capabilities.ToneGeneration` is true. So the parameter reports whether tone description and tone pattern entries may be added, removed or modified. |
 | `Device.Services.VoiceService.{i}.Capabilities.ToneFileFormats`<br>`voiceServiceCapabilitiesToneFileFormats`<br>*v1 + v2* | **v1:** `string` - JSON string; maxLength 256; pattern `^(G.711MuLaw\|G.711ALaw\|MP3\|WAV\|AMR)(,(G.711MuLaw\|G.711ALaw\|MP3\|WAV\|AMR))*$`<br>**v2:** `string` - JSON string; maxLength 256; pattern `^(G.711MuLaw\|G.711ALaw\|G.729\|MP3\|WAV\|AMR)(,(G.711MuLaw\|G.711ALaw\|G.729\|MP3\|WAV\|AMR))*$` | **v1:** Read-Only (`getParameterOptionalList`)<br>**v2:** Read-Only (`getParameterSupportedList`) | **v1:** Comma-separated list (maximum list length 256) of strings.<br>**v2:** Comma-separated list of strings. |
 | `Device.Services.VoiceService.{i}.Capabilities.ToneGeneration`<br>`voiceServiceCapabilitiesToneGeneration`<br>*v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterSupportedList`) | Support for tone generation. |
 | `Device.Services.VoiceService.{i}.Capabilities.UserConnectionModes`<br>`voiceServiceCapabilitiesUserConnectionModes`<br>*v2 only* | `string` - JSON string; maxLength 256 | Read-Only (`getParameterSupportedList`) | Comma-separated list of strings. |
@@ -1131,7 +1192,7 @@ anything.
 | `Device.Services.VoiceService.{i}.VoiceProfile.{i}.ButtonMap.Button.{i}.UserAccess`<br>`voiceServiceVoiceProfileButtonMapButtonUserAccess`<br>*v1 only* | `boolean` - JSON boolean | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | This parameter indicates whether the user has permission to program the button or function key. |
 | `Device.Services.VoiceService.{i}.VoiceProfile.{i}.ButtonMap.NumberOfButtons`<br>`voiceServiceVoiceProfileButtonMapNumberOfButtons`<br>*v1 only* | `unsignedInt` - JSON integer; minimum 0 | Read-Only (`getParameterOptionalList`) | Indicates the number of Button objects. |
 | `Device.Services.VoiceService.{i}.VoiceProfile.{i}.DTMFMethod`<br>`voiceServiceVoiceProfileDTMFMethod`<br>*v1 only* | `string` - JSON string; maxLength 64 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Method by which DTMF digits MUST be passed. |
-| `Device.Services.VoiceService.{i}.VoiceProfile.{i}.DTMFMethodG711`<br>`voiceServiceVoiceProfileDTMFMethodG711`<br>*v1 only* | `string` - JSON string; maxLength 64 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Method by which DTMF digits MUST be passed if the the current codec is G.711. |
+| `Device.Services.VoiceService.{i}.VoiceProfile.{i}.DTMFMethodG711`<br>`voiceServiceVoiceProfileDTMFMethodG711`<br>*v1 only* | `string` - JSON string; maxLength 64 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Method by which DTMF digits MUST be passed if the current codec is G.711. |
 | `Device.Services.VoiceService.{i}.VoiceProfile.{i}.DigitMap`<br>`voiceServiceVoiceProfileDigitMap`<br>*v1 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Digit map controlling the transmission of dialed digit information. |
 | `Device.Services.VoiceService.{i}.VoiceProfile.{i}.DigitMapEnable`<br>`voiceServiceVoiceProfileDigitMapEnable`<br>*v1 only* | `boolean` - JSON boolean | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Enables use of DigitMap. |
 | `Device.Services.VoiceService.{i}.VoiceProfile.{i}.Enable`<br>`voiceServiceVoiceProfileEnable`<br>*v1 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Enables or disables all lines in this profile, or places them into a quiescent state. |
@@ -1411,7 +1472,7 @@ anything.
 | TR-181 Parameter | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.VoIPProfile.{i}.DTMFMethod`<br>`voiceServiceVoIPProfileDTMFMethod`<br>*v2 only* | `string` - JSON string; maxLength 256; pattern `^(InBand\|RFC4733\|SIPInfo)(,(InBand\|RFC4733\|SIPInfo))*$` | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Comma-separated list of strings. |
-| `Device.Services.VoiceService.{i}.VoIPProfile.{i}.DTMFMethodG711`<br>`voiceServiceVoIPProfileDTMFMethodG711`<br>*v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Method by which DTMF digits MUST be passed if the the current codec is G.711. |
+| `Device.Services.VoiceService.{i}.VoIPProfile.{i}.DTMFMethodG711`<br>`voiceServiceVoIPProfileDTMFMethodG711`<br>*v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Method by which DTMF digits MUST be passed if the current codec is G.711. |
 | `Device.Services.VoiceService.{i}.VoIPProfile.{i}.Enable`<br>`voiceServiceVoIPProfileEnable`<br>*v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Enables or disables this VoIP profile. |
 | `Device.Services.VoiceService.{i}.VoIPProfile.{i}.FaxT38.HighSpeedRedundancy`<br>`voiceServiceVoIPProfileFaxT38HighSpeedRedundancy`<br>*v2 only* | `unsignedInt` - JSON integer; minimum 0; maximum 3 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Specifies the packet-level redundancy for high-speed data transmissions (i.e., T.4 image data). |
 | `Device.Services.VoiceService.{i}.VoIPProfile.{i}.FaxT38.LowSpeedRedundancy`<br>`voiceServiceVoIPProfileFaxT38LowSpeedRedundancy`<br>*v2 only* | `unsignedInt` - JSON integer; minimum 0; maximum 5 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Specifies the packet-level redundancy for low-speed data transmissions (i.e., T.30 handshaking information). |
@@ -1869,7 +1930,7 @@ anything.
 | `Device.Services.VoiceService.{i}.Trunk.{i}.CodecPriority`<br>`voiceServiceTrunkCodecPriority`<br>*v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | The CodecPriority option controls which end of an inbound call leg will have priority over the negotiation of codecs. |
 | `Device.Services.VoiceService.{i}.Trunk.{i}.DDIRange`<br>`voiceServiceTrunkDDIRange`<br>*v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Comma-separated list of strings. |
 | `Device.Services.VoiceService.{i}.Trunk.{i}.Enable`<br>`voiceServiceTrunkEnable`<br>*v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Enables or disables this trunk. |
-| `Device.Services.VoiceService.{i}.Trunk.{i}.LineObjectCreation`<br>`voiceServiceTrunkLineObjectCreation`<br>*v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | When true, a CallControl.Line.{i}. - **D13 - shipped text truncated at the model's markup.** Per `VoiceService:2.0` the sentence continues "instance SHOULD be created automatically for each identity within the ranges specified by `DDIRange`". So the parameter asks for one call-control line per identity in that range. |
+| `Device.Services.VoiceService.{i}.Trunk.{i}.LineObjectCreation`<br>`voiceServiceTrunkLineObjectCreation`<br>*v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | When true, a CallControl.Line.{i}. - **D13 - shipped text truncated at the model's markup.** Per `VoiceService:2.0` the sentence continues "instance SHOULD be created automatically for each identity within the ranges specified by DDIRange". So the parameter asks for one call-control line per identity in that range. |
 | `Device.Services.VoiceService.{i}.Trunk.{i}.MaxChannels`<br>`voiceServiceTrunkMaxChannels`<br>*v2 only* | `unsignedInt` - JSON integer; minimum 0 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Defines the maximum number of simultaneous communication channels handled by this trunk. |
 | `Device.Services.VoiceService.{i}.Trunk.{i}.MaxInboundChannelCount`<br>`voiceServiceTrunkMaxInboundChannelCount`<br>*v2 only* | `int` - JSON integer; minimum -1 | Read-Write (`setParameterOptionalList`, `getParameterSupportedList`) | Maximal number of simultaneous communication channels in inbound direction supported across this trunk. |
 | `Device.Services.VoiceService.{i}.Trunk.{i}.MaxOutboundChannelCount`<br>`voiceServiceTrunkMaxOutboundChannelCount`<br>*v2 only* | `int` - JSON integer; minimum -1 | Read-Write (`setParameterOptionalList`, `getParameterSupportedList`) | Maximal number of simultaneous communication channels in outbound direction supported across this trunk. |
@@ -2250,7 +2311,7 @@ anything.
 | `Device.Services.VoiceService.{i}.X_RDK_DnsServers`<br>`voiceServiceX_RDK_DnsServers`<br>*v1 + v2* | `string` - JSON string | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Send Dns Server Address to voice process. |
 | `Device.Services.VoiceService.{i}.X_RDK_Enable`<br>`voiceServiceX_RDK_Enable`<br>*v1 + v2* | `string` - values from `voiceStateEnumList` | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Enable/Disable voice process. |
 | `Device.Services.VoiceService.{i}.X_RDK_FactoryReset`<br>`voiceServiceX_RDK_FactoryReset`<br>*v1 + v2* | `boolean` - JSON boolean | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Factory Reset voice. |
-| `Device.Services.VoiceService.{i}.X_RDK_Firewall_Rule_Data`<br>`voiceServiceX_RDK_Firewall_Rule_Data`<br>*v1 + v2* | `string` - JSON string; pattern `^(([0-1])(,(sip\|rtp))(,((6553[0-5])\|(655[0-2][0-9])\|(65[0-4][0-9]{2})\|(6[0-4][0-9]{3})\|([1-5][0-9]{4})\|([0-5]{0,5})\|([0-9]{1,4})))(,(((([0-9]\|[1-9][0-9]\|1[0-9][0-9]\|2[0-4][0-9]\|25[0-5])\.){3}([0-9]\|[1-9][0-9]\|1[0-9][0-9]\|2[0-4][0-9]\|25[0-5]))\|(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}\|([0-9a-fA-F]{1,4}:){1,7}:\|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}\|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}\|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}\|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}\|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}\|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})\|:((:[0-9a-fA-F]{1,4}){1,7}\|:)\|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}\|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]\|(2[0-4]\|1{0,1}[0-9]){0,1}[0-9])(.)){3,3}(25[0-5]\|(2[0-4]\|1{0,1}[0-9]){0,1}[0-9])\|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]\|(2[0-4]\|1{0,1}[0-9]){0,1}[0-9])(.)){3,3}(25[0-5]\|(2[0-4]\|1{0,1}[0-9]){0,1}[0-9]))));)$` | Read-Only (`getParameterSupportedList`) | Contains the comma seperated list of enable/disable,protocol,port,ip; that are required to set firewall rules. (Ex: (1,sip,5060,192.168.0.11;1,rtp,50000,192.168.0.11;0,rtp,50001,192.168.0.11;) ) |
+| `Device.Services.VoiceService.{i}.X_RDK_Firewall_Rule_Data`<br>`voiceServiceX_RDK_Firewall_Rule_Data`<br>*v1 + v2* | `string` - JSON string; no `maxLength`; a 909-character `pattern` anchoring exactly one `enable,protocol,port,ip;` tuple, with 22 alternatives across its protocol, port and address fields - every alternative and the exact expression are under `Value patterns too long for a table cell`, and the verdicts the pattern produces are under `D4` | Read-Only (`getParameterSupportedList`) | Contains the comma seperated list of enable/disable,protocol,port,ip; that are required to set firewall rules. (Ex: (1,sip,5060,192.168.0.11;1,rtp,50000,192.168.0.11;0,rtp,50001,192.168.0.11;) ) |
 | `Device.Services.VoiceService.{i}.X_RDK_IpAddressFamily`<br>`voiceServiceX_RDK_IpAddressFamily`<br>*v1 + v2* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | IP address family that voice currently uses(Ipv4/Ipv6) . |
 | `Device.Services.VoiceService.{i}.X_RDK_LocalTimeZone`<br>`voiceServiceX_RDK_LocalTimeZone`<br>*v2 only* | `string` - JSON string | Read-Only (`getParameterOptionalList`) | Local Time Zone string. |
 | `Device.Services.VoiceService.{i}.X_RDK_OngoingEmergencyCall`<br>`voiceServiceX_RDK_OngoingEmergencyCall`<br>*v2 only* | `boolean` - JSON boolean | Read-Only (`getParameterOptionalList`) | Status of OngoingEmergencyCall. |
@@ -2265,6 +2326,126 @@ anything.
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.ReservedPorts.LANPortRange`<br>`voiceServiceReservedPortsLANPortRange`<br>*v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Range of ports reserved for use by the CPE on any LAN interfaces. |
 | `Device.Services.VoiceService.{i}.ReservedPorts.WANPortRange`<br>`voiceServiceReservedPortsWANPortRange`<br>*v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Range of ports reserved for use by the CPE on any WAN interface. |
+
+### Value patterns too long for a table cell
+
+Two `value.pattern` expressions in this reference are single runs of hundreds of characters carrying
+no space and so no break opportunity, which neither the generated site nor GitHub can wrap: printed
+inside a table cell, either one stretches the whole table and pushes the Access and Description
+columns several screens to the right. Both are reproduced here in full instead, and the rows above
+carry a bounded summary of the constraint that names this section.
+**The fenced form below is the authoritative one**: a table cell has to escape every `|` as `\|` to
+survive the markdown, whereas the fenced text is the schema's own bytes, unescaped and unaltered.
+
+<b>`Device.Services.VoiceService.{i}.Capabilities.FacilityActions`</b> - definition key
+`voiceServiceCapabilitiesFacilityActions`, defined in `telcovoice_hal_schema_v2.json` only, so this
+parameter belongs to `v2` and has no `v1` counterpart. Its `type.const` is `string` and its `value`
+carries `maxLength` 256 together with the pattern below.
+
+The expression is `^(label)(,(label))*$`, and the two halves are the identical 56-label
+alternation written out twice. A conforming value is therefore one or more of these labels separated
+by single commas, in any order, with repetition admitted, no whitespace anywhere in the value, and
+no label outside the set; the labels are case-sensitive and upper case. Nothing in the pattern
+bounds the number of items - `maxLength` 256 is what does. The shortest label is `PW_SET` at 6
+characters, so at most 36 items fit: a 36-item value of 251 bytes validates and a 37-item one of 258
+bytes does not. The empty string is rejected, because the first group is not optional.
+
+| Label group | Labels admitted, in schema order | Count |
+|---|---|---|
+| `AA` | `AA_REGISTER`, `AA_ERASE`, `AA_INTERROGATE` | 3 |
+| `CA` | `CA_ACTIVATE` | 1 |
+| `CCBS` | `CCBS_ACTIVATE`, `CCBS_DEACTIVATE`, `CCBS_INTERROGATE` | 3 |
+| `CCNR` | `CCNR_ACTIVATE`, `CCNR_DEACTIVATE`, `CCNR_INTERROGATE` | 3 |
+| `CFB` | `CFB_REGISTER`, `CFB_ACTIVATE`, `CFB_DEACTIVATE`, `CFB_ERASE`, `CFB_INTERROGATE` | 5 |
+| `CFNR` | `CFNR_REGISTER`, `CFNR_ACTIVATE`, `CFNR_DEACTIVATE`, `CFNR_ERASE`, `CFNR_INTERROGATE`, `CFNR_TIMER` | 6 |
+| `CFT` | `CFT_ACTIVATE`, `CFT_DEACTIVATE`, `CFT_INTERROGATE` | 3 |
+| `CFU` | `CFU_REGISTER`, `CFU_ACTIVATE`, `CFU_DEACTIVATE`, `CFU_ERASE`, `CFU_INTERROGATE` | 5 |
+| `CLIR` | `CLIR_ACTIVATE`, `CLIR_DEACTIVATE`, `CLIR_INTERROGATE` | 3 |
+| `CP` | `CP_INVOKE` | 1 |
+| `CW` | `CW_ACTIVATE`, `CW_DEACTIVATE`, `CW_INVOKE` | 3 |
+| `DND` | `DND_ACTIVATE`, `DND_DEACTIVATE`, `DND_INTERROGATE` | 3 |
+| `EXT` | `EXT_INVOKE` | 1 |
+| `LINE` | `LINE_INVOKE` | 1 |
+| `MAILBOX` | `MAILBOX_INVOKE` | 1 |
+| `OCB` | `OCB_ACTIVATE`, `OCB_DEACTIVATE`, `OCB_INTERROGATE` | 3 |
+| `PSO` | `PSO_ACTIVATE` | 1 |
+| `PW` | `PW_SET` | 1 |
+| `SCF` | `SCF_ACTIVATE`, `SCF_DEACTIVATE`, `SCF_INTERROGATE` | 3 |
+| `SCREJ` | `SCREJ_ACTIVATE`, `SCREJ_DEACTIVATE`, `SCREJ_INTERROGATE` | 3 |
+| `SR` | `SR_ACTIVATE`, `SR_DEACTIVATE`, `SR_INTERROGATE` | 3 |
+| **21 groups** | **every label the pattern admits** | **56** |
+
+The exact expression, which is the authoritative form of the constraint:
+
+```text
+^(AA_REGISTER|AA_ERASE|AA_INTERROGATE|CA_ACTIVATE|CCBS_ACTIVATE|CCBS_DEACTIVATE|CCBS_INTERROGATE|CCNR_ACTIVATE|CCNR_DEACTIVATE|CCNR_INTERROGATE|CFB_REGISTER|CFB_ACTIVATE|CFB_DEACTIVATE|CFB_ERASE|CFB_INTERROGATE|CFNR_REGISTER|CFNR_ACTIVATE|CFNR_DEACTIVATE|CFNR_ERASE|CFNR_INTERROGATE|CFNR_TIMER|CFT_ACTIVATE|CFT_DEACTIVATE|CFT_INTERROGATE|CFU_REGISTER|CFU_ACTIVATE|CFU_DEACTIVATE|CFU_ERASE|CFU_INTERROGATE|CLIR_ACTIVATE|CLIR_DEACTIVATE|CLIR_INTERROGATE|CP_INVOKE|CW_ACTIVATE|CW_DEACTIVATE|CW_INVOKE|DND_ACTIVATE|DND_DEACTIVATE|DND_INTERROGATE|EXT_INVOKE|LINE_INVOKE|MAILBOX_INVOKE|OCB_ACTIVATE|OCB_DEACTIVATE|OCB_INTERROGATE|PSO_ACTIVATE|PW_SET|SCF_ACTIVATE|SCF_DEACTIVATE|SCF_INTERROGATE|SCREJ_ACTIVATE|SCREJ_DEACTIVATE|SCREJ_INTERROGATE|SR_ACTIVATE|SR_DEACTIVATE|SR_INTERROGATE)(,(AA_REGISTER|AA_ERASE|AA_INTERROGATE|CA_ACTIVATE|CCBS_ACTIVATE|CCBS_DEACTIVATE|CCBS_INTERROGATE|CCNR_ACTIVATE|CCNR_DEACTIVATE|CCNR_INTERROGATE|CFB_REGISTER|CFB_ACTIVATE|CFB_DEACTIVATE|CFB_ERASE|CFB_INTERROGATE|CFNR_REGISTER|CFNR_ACTIVATE|CFNR_DEACTIVATE|CFNR_ERASE|CFNR_INTERROGATE|CFNR_TIMER|CFT_ACTIVATE|CFT_DEACTIVATE|CFT_INTERROGATE|CFU_REGISTER|CFU_ACTIVATE|CFU_DEACTIVATE|CFU_ERASE|CFU_INTERROGATE|CLIR_ACTIVATE|CLIR_DEACTIVATE|CLIR_INTERROGATE|CP_INVOKE|CW_ACTIVATE|CW_DEACTIVATE|CW_INVOKE|DND_ACTIVATE|DND_DEACTIVATE|DND_INTERROGATE|EXT_INVOKE|LINE_INVOKE|MAILBOX_INVOKE|OCB_ACTIVATE|OCB_DEACTIVATE|OCB_INTERROGATE|PSO_ACTIVATE|PW_SET|SCF_ACTIVATE|SCF_DEACTIVATE|SCF_INTERROGATE|SCREJ_ACTIVATE|SCREJ_DEACTIVATE|SCREJ_INTERROGATE|SR_ACTIVATE|SR_DEACTIVATE|SR_INTERROGATE))*$
+```
+
+<b>`Device.Services.VoiceService.{i}.X_RDK_Firewall_Rule_Data`</b> - definition key
+`voiceServiceX_RDK_Firewall_Rule_Data`, defined in both `telcovoice_hal_schema_v1.json` and
+`telcovoice_hal_schema_v2.json` with patterns that are identical byte for byte, so the constraint
+below is `v1`'s and `v2`'s alike. Its `type.const` is `string` and its `value` carries this pattern
+and **no `maxLength`** at all, which is why it also appears among the unbounded string values above.
+
+The expression anchors exactly one `enable,protocol,port,ip;` tuple between `^` and `$`. What each
+field admits is enumerated below; the consequences of that single-tuple anchoring, the mandatory
+terminator and the individual values the pattern accepts and rejects are analysed under `D4` in
+`Contract Defects` and are not repeated here.
+
+| Field | Alternatives admitted |
+|---|---|
+| Enable flag | `[0-1]` - the digits `0` and `1`, and nothing else |
+| Protocol | `sip`, `rtp` - lower case only, 2 alternatives |
+| Port | 7 alternatives, tabulated below |
+| Address | 13 alternatives, tabulated below - one dotted-quad `IPv4` form and 12 `IPv6` forms |
+| Terminator | a single `;`, mandatory rather than a separator |
+
+Each alternative in the two tables below is a fragment of the same expression, and every `|` inside a
+fragment is written `\|` because a table cell requires that escape; the fenced form at the end of this
+section is the one that carries the schema's own bytes.
+
+The port field, one row per alternative:
+
+| Port alternative | What it admits |
+|---|---|
+| `(6553[0-5])` | `65530` to `65535` |
+| `(655[0-2][0-9])` | `65500` to `65529` |
+| `(65[0-4][0-9]{2})` | `65000` to `65499` |
+| `(6[0-4][0-9]{3})` | `60000` to `64999` |
+| `([1-5][0-9]{4})` | `10000` to `59999` |
+| `([0-5]{0,5})` | the empty string, and up to five digits drawn from `0` to `5` |
+| `([0-9]{1,4})` | one to four digits, so `0` to `9999`, leading zeros admitted |
+
+The address field, one row per alternative:
+
+| Address alternative | Form |
+|---|---|
+| `((([0-9]\|[1-9][0-9]\|1[0-9][0-9]\|2[0-4][0-9]\|25[0-5])\.){3}([0-9]\|[1-9][0-9]\|1[0-9][0-9]\|2[0-4][0-9]\|25[0-5]))` | dotted-quad `IPv4`, each octet range-checked |
+| `([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}` | eight groups, none elided |
+| `([0-9a-fA-F]{1,4}:){1,7}:` | one to seven groups then a trailing `::` |
+| `([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}` | one to six groups, an elision, then one group |
+| `([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}` | one to five groups, an elision, then one or two groups |
+| `([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}` | one to four groups, an elision, then one to three groups |
+| `([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}` | one to three groups, an elision, then one to four groups |
+| `([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}` | one or two groups, an elision, then one to five groups |
+| `[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})` | one group, an elision, then one to six groups |
+| `:((:[0-9a-fA-F]{1,4}){1,7}\|:)` | a leading elision, then one to seven groups, or `::` alone |
+| `fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}` | a link-local `fe80:` address with a zone identifier after `%` |
+| `::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]\|(2[0-4]\|1{0,1}[0-9]){0,1}[0-9])(.)){3,3}(25[0-5]\|(2[0-4]\|1{0,1}[0-9]){0,1}[0-9])` | an `IPv4`-mapped or `IPv4`-compatible address after a leading elision; its separator is an unescaped `.`, so any character stands in for the dot |
+| `([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]\|(2[0-4]\|1{0,1}[0-9]){0,1}[0-9])(.)){3,3}(25[0-5]\|(2[0-4]\|1{0,1}[0-9]){0,1}[0-9])` | an `IPv4`-embedded address after one to four groups and an elision, with the same unescaped separator |
+
+The exact expression, which is the authoritative form of the constraint:
+
+```text
+^(([0-1])(,(sip|rtp))(,((6553[0-5])|(655[0-2][0-9])|(65[0-4][0-9]{2})|(6[0-4][0-9]{3})|([1-5][0-9]{4})|([0-5]{0,5})|([0-9]{1,4})))(,(((([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]))|(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])(.)){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])(.)){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))));)$
+```
+
+<i>Derived from `hal_schema/telcovoice_hal_schema_v1.json` and
+`hal_schema/telcovoice_hal_schema_v2.json`
+(`definitions.voiceServiceCapabilitiesFacilityActions.properties.value.pattern` and
+`definitions.voiceServiceX_RDK_Firewall_Rule_Data.properties.value.pattern`). Every label,
+alternative and character in this section was extracted from those two files; the item bound and
+the empty-string verdict were measured with a draft-07 validator against the shipped constraint.</i>
 
 ## Enumeration Appendix
 
@@ -2285,8 +2466,8 @@ rows above rather than repeated inline.
 This repository ships **no** example message fixtures, unlike the other two `JSON` HALs in this
 bundle. Every message below was therefore authored from the schemas, validated against both
 `telcovoice_hal_schema_v1.json` and `telcovoice_hal_schema_v2.json`, and cross-checked against
-[`config/telcovoice_manager_conf.json`](../../config/telcovoice_manager_conf.json) and
-[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h)
+[`config/telcovoice_manager_conf.json`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/config/telcovoice_manager_conf.json) and
+[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h)
 for module, schema path and port. Each one is valid under **both** shipped variants, which is why
 the parameters chosen for them are keys the two files agree on; the parameters they disagree on are
 tabulated under `Variant differences` instead, because no single message can illustrate two
@@ -2507,7 +2688,7 @@ The acknowledgement is again `result`, carrying one of the four `resultStatusEnu
 arrived [`:745`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_client.c#L745), while the callback registration it performs at
 [`:742`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_client.c#L742) is the library's only append onto a `static` list
 [`:83`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_client.c#L83). This manager's wrapper then returns success on that helper's return code
-alone [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1340-1347`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c).
+alone [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1340-1347`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c#L1340-L1347).
 So a `Failed`, `Invalid Argument` or `Not Supported` answer to a subscription is indistinguishable
 from acceptance, and the only symptom is that no event ever arrives. The full inventory of routes and
 why each one closes is under `Transport and Protocol`; the short
@@ -2623,16 +2804,16 @@ files, the manager configuration and the manager source — is a read-only autho
 documentation, and a downstream test suite must be told what the interface actually does rather than
 what it was meant to do.
 
-Two kinds appear here, and the distinction decides who owns the fix. **`D1` to `D10`, `D13` and `D14`
-are contract defects**: the shipped schema itself says something unsatisfiable, self-contradictory or
+Two kinds appear here, and the distinction decides who owns the fix. <b>`D1` to `D10`, `D13` and `D14`
+are contract defects</b>: the shipped schema itself says something unsatisfiable, self-contradictory or
 wrong, so every implementation of the contract inherits them and the remedy is a schema change.
-**`D11` and `D12` are reference-implementation defects** in this repository's own delivered code: the
+<b>`D11` and `D12` are reference-implementation defects</b> in this repository's own delivered code: the
 contract they sit under is sound, the code beneath it is not, and the remedy is a source change under
 `source/TR-181/`. They are recorded in the same list because a test author has to plan around both,
 and because `D12` in particular changes how a subscriber must treat one parameter's value regardless
 of which schema variant is deployed. Each entry says which of the two it is.
 
-### D1 — `deleteObject` is uninstantiable in both variants
+### D1 — deleteObject is uninstantiable in both variants
 
 `definitions.deleteObject` is `{"anyOf": [], "required": ["name"]}` in `v1` and `v2`. An empty
 `anyOf` is unsatisfiable, so the action cannot carry a valid payload. This is also why both files
@@ -2640,7 +2821,7 @@ fail the draft-07 meta-schema: `anyOf` is required to be a non-empty array. Cons
 workflow can be published, and a test suite must treat `deleteObject` as unsupported rather than
 untested.
 
-### D2 — `v2` references a definition it does not define, and read-path validation raises
+### D2 — v2 references a definition it does not define, and read-path validation raises
 
 `telcovoice_hal_schema_v2.json` lists `#/definitions/voiceServiceCallLogSessionSessionRFactor` in
 `getParameterSupportedList`; the definition it actually declares is
@@ -2664,8 +2845,33 @@ which was done.
 The definitions listed under `Definitions the schema leaves unconstrained` declare no `value` member
 and forbid undeclared members, while `getParametersResponse` and `setParameters` both require
 `value`. No schema-valid answer to a read of any of them exists, and no write to any of them is
-valid, yet all ten appear in `getParameterSupportedList`. Consequence: a test must not assert a
-returned value for any of the ten.
+valid, yet every one of the ten is advertised in a read list.
+
+The membership was enumerated per definition key, and it is not uniform: **four** are in
+`getParameterSupportedList` — `voiceServiceVoiceProfileLineSessionSessionStartTime` in `v1`, and
+`voiceServiceCallLogSessionStart`, `voiceServiceCallLogStart` and
+`voiceServiceSIPRegistrarAccountContactExpireTime` in `v2` — and the remaining **six**, all in `v2`,
+are in `getParameterOptionalList`: `voiceServiceDECTPortableLastUpdateDateTime`,
+`voiceServiceDECTPortableSubscriptionTime`, `voiceServiceInterworkFirewallRuleSetTime`,
+`voiceServiceInterworkInterworkingRuleSetTime`, `voiceServiceInterworkMapLastTime` and
+`voiceServiceSIPClientContactExpireTime`. None of the ten is in `setParameterSupportedList`, and
+**two of the six optional reads — `voiceServiceInterworkFirewallRuleSetTime` and
+`voiceServiceInterworkInterworkingRuleSetTime` — are additionally in `setParameterOptionalList`**,
+which makes them writes the contract admits and no instance can satisfy: the action requires a
+`value` the definition forbids, so the request is a schema violation rather than an unsupported
+parameter.
+
+Consequences, and there are three rather than one. A test must not assert a returned value for any of
+the ten. A test must not treat one of the six optional reads as a required read, because the
+optional list is exactly the set a conforming server need not answer. And a test exercising the two
+optional writes must expect a schema violation, not a "not writable" rejection, and must not count
+either as a working write path.
+
+*Derived from `hal_schema/telcovoice_hal_schema_v1.json` and
+`hal_schema/telcovoice_hal_schema_v2.json`, whose `getParameterSupportedList`,
+`getParameterOptionalList`, `setParameterSupportedList` and `setParameterOptionalList` branches were
+enumerated per definition key. Membership was measured from those four lists, not read off the
+`(Access = …)` markers inside the descriptions.*
 
 ### D4 — the firewall event's description contradicts its own pattern
 
@@ -2703,10 +2909,10 @@ rejected by the schema. And the valid empty-port form is the one the delivered p
 discards, for the reason recorded in `D12` — so that row is not a curiosity but the single most
 consequential line in the table.
 
-*Derived from `hal_schema/telcovoice_hal_schema_v1.json` and
+<i>Derived from `hal_schema/telcovoice_hal_schema_v1.json` and
 `hal_schema/telcovoice_hal_schema_v2.json`
 (`definitions.voiceServiceX_RDK_Firewall_Rule_Data`), whose `value.pattern` strings are identical
-byte for byte. Every verdict was measured, not read off the expression.*
+byte for byte. Every verdict was measured, not read off the expression.</i>
 
 ### D5 — the pinned publish helper emits a message neither schema accepts
 
@@ -2724,18 +2930,18 @@ schemas must compose `publishEvent` messages directly instead of relying on that
 
 `TelcoVoiceMgrHal_DelParam` is compiled into every `FEATURE_RDKB_VOICE_DM_TR104_V2` build and asks
 the local request builder for a delete message
-[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1015-1057`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c).
+[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1015-1057`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c#L1015-L1057).
 It is reached from two live `v2` call sites, both in call-control object removal
-[`source/TR-181/middle_layer_src/telcovoicemgr_dml_v2_CallControl.c:4780`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_v2_CallControl.c)
+[`source/TR-181/middle_layer_src/telcovoicemgr_dml_v2_CallControl.c:4780`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_v2_CallControl.c#L4780)
 and `:5595`. Three facts about that path have to be stated together, because each on its own gives
 the wrong impression:
 
 1. **No delete message reaches the wire.** `create_json_request_message` implements only
    `SET_REQUEST_MESSAGE` and `GET_REQUEST_MESSAGE`; a delete request falls through to the `default`
    branch, which logs "request type not supported" and returns `NULL`
-   [`…/telcovoicemgr_dml_hal.c:137-189`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c).
+   [`…/telcovoicemgr_dml_hal.c:137-189`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c#L137-L189).
    The `CHECK` macro then returns `ANSC_STATUS_FAILURE`
-   [`…/telcovoicemgr_dml_hal.h:109-114`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h).
+   [`…/telcovoicemgr_dml_hal.h:109-114`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h#L109-L114).
    So the manager *attempts* an action the contract cannot express, and the attempt fails at
    composition. The failure is real; it is simply not a protocol failure.
 2. **A latent success-after-failure path sits behind that.** `TelcoVoiceMgrHal_DelParam` initialises
@@ -2746,7 +2952,7 @@ the wrong impression:
 3. **Local and vendor state diverge on the failing path.** Both call sites free the in-memory
    data-model row only on success, then call an unrelated local `deleteObject` helper — the
    configuration-persistence one, not the protocol action — unconditionally
-   [`…/telcovoicemgr_dml_v2_CallControl.c:4792`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_v2_CallControl.c)
+   [`…/telcovoicemgr_dml_v2_CallControl.c:4792`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_v2_CallControl.c#L4792)
    and `:5607`. On a live `v2` build the persisted configuration row is therefore removed while the
    in-memory row and its instance count remain.
 
@@ -2755,7 +2961,7 @@ generated protocol tests for this HAL — there is no valid message to send and 
 assert — while the local-versus-in-memory divergence is a manager-side defect for the component
 owner, not something a HAL test can observe.
 
-### D7 — `getActiveSubscriptions` has no defined payload
+### D7 — getActiveSubscriptions has no defined payload
 
 Both the request and the response are bare envelopes with no schema-defined member for a
 subscription list, and the pinned transport provides no helper for either. The action pair is
@@ -2774,7 +2980,7 @@ every `params` entry definition does declare it, so unknown payload members are 
 a message can carry undeclared envelope metadata and still validate, and a test that asserts strict
 envelope conformance will not get it from these schemas.
 
-### D10 — `X_RDK_TimeOffset` labels an integer value `string`
+### D10 — X_RDK_TimeOffset labels an integer value string
 
 `voiceServiceX_RDK_TimeOffset`, `v2` only, binds
 `Device.Services.VoiceService.{i}.X_RDK_TimeOffset` and declares `type` as `const` `string` while
@@ -2785,8 +2991,8 @@ Measured against the shipped `v2` schema:
 | Entry | Verdict |
 |---|---|
 | `{"type": "string", "value": 5}` | **valid** — the label says string, the value must be a number |
-| `{"type": "string", "value": "5"}` | invalid — `'5' is not of type 'integer'` |
-| `{"type": "int", "value": 5}` | invalid — `'string' was expected` |
+| `{"type": "string", "value": "5"}` | invalid — ``'5' is not of type 'integer'`` |
+| `{"type": "int", "value": 5}` | invalid — ``'string' was expected`` |
 
 It is the only definition in either variant where the label and the value domain disagree,
 established by comparing `type.const` against `value.type` across all 353 `v1` and 776 `v2`
@@ -2803,15 +3009,15 @@ so a reader receives the offset as text and `param->type` as `PARAM_STRING` — 
 numeric type the value actually is. A caller that switches on `eParamType` will treat a number as a
 string here and nowhere else.
 
-*Derived from `hal_schema/telcovoice_hal_schema_v2.json`
+<i>Derived from `hal_schema/telcovoice_hal_schema_v2.json`
 (`definitions.voiceServiceX_RDK_TimeOffset`, `definitions.setParameterOptionalList`) and
 `json_hal_common.c:68-141` at the pinned commit. Every verdict above was measured with a draft-07
-validator against the shipped schema.*
+validator against the shipped schema.</i>
 
-### D11 — the reference address validator never reports an `IPv4` address valid
+### D11 — the reference address validator never reports an IPv4 address valid
 
 **Reference-implementation defect.** `IsValidIpAddress(af, address)` at
-[`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:211-256`](../../source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c)
+[`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:211-256`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c#L211-L256)
 has two family branches and only one of them returns success. The `AF_INET6` branch returns `TRUE`
 explicitly — at
 [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:218`] for the all-zero address
@@ -2837,7 +3043,7 @@ than from the address in the tuple, so the reachable outcomes are:
 | `IPv6` | an `IPv4` literal | failure — the prefix parse at line 224 and `inet_pton(AF_INET6, ...)` at line 230 reject it |
 | any other string, including empty | any | failure at line 295 — `Invalid IpAddressFamily` |
 
-The fourth row is deliberately not written as "a valid `IPv6` literal", because that is not what the
+The fourth row is deliberately not written as "a valid IPv6 literal", because that is not what the
 `AF_INET6` arm tests. It tests a transformed copy of the address — the value minus its final
 character, then cut at the first `/` — so the set of accepted strings is strictly larger than the set
 of valid literals, and the difference is what `D12` records as a command-injection path. `IPv6`
@@ -2865,9 +3071,9 @@ ships.
 | # | Step | Where |
 |---|---|---|
 | 1 | The receive thread copies the event's `name` into a 512-byte array and matches it against the subscription list by **prefix**, not by identity. | [`json_hal_client.c:423-430`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_client.c#L423-L430) |
-| 2 | `get_event_param` copies the `name` and the `value` with `strncpy(..., 255)` into 256-byte zero-initialised arrays, checking neither `module`, `version`, `action` nor `type`, and returning success when the message carries no `params` member at all. | [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1059-1110`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c), copies at [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1083`] and [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1094`], destinations at [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1276-1277`] |
-| 3 | The callback accepts the event if the copied name merely **contains** the leaf token `X_RDK_Firewall_Rule_Data`. | [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1286`], token at [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h:107`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h) |
-| 4 | The value is stored under the data lock and handed to the rule generator. | [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1301`] and [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1318-1326`], generator at [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:324`](../../source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c) |
+| 2 | `get_event_param` copies the `name` and the `value` with `strncpy(..., 255)` into 256-byte zero-initialised arrays, checking neither `module`, `version`, `action` nor `type`, and returning success when the message carries no `params` member at all. | [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1059-1110`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c#L1059-L1110), copies at [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1083`] and [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1094`], destinations at [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1276-1277`] |
+| 3 | The callback accepts the event if the copied name merely **contains** the leaf token `X_RDK_Firewall_Rule_Data`. | [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1286`], token at [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h:107`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h#L107) |
+| 4 | The value is stored under the data lock and handed to the rule generator. | [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1301`] and [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1318-1326`], generator at [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:324`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c#L324) |
 | 5 | The generator copies the value into a 1024-byte buffer with `snprintf` and splits it with `strtok_r` on `;` and then on `,`, taking comma fields one to four as enable, protocol, port and address. | [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:363-391`] |
 | 6 | `strtoul` converts the port text, then `validate_firewall_rule` rejects a value above 65535 and calls `IsValidIpAddress` for the configured family — the check `D11` shows never succeeds for `IPv4`. | [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:393-396`] and [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:265-298`] |
 | 7 | The tuple is appended only if its protocol matches `sip` or `rtp` by exact `strcmp`, its enable flag parsed non-zero and step 6 succeeded; the address and the **original port text** are then written to a pinhole list as `addr,port;`. | [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:397-444`] |
@@ -2916,13 +3122,14 @@ the address it is given. For `AF_INET6` it calls `ParsePrefixAddress`
 output copy** to `inet_pton`
 [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:230`], and returns `TRUE` on
 that basis [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:236`]. The copy is
-built by two transformations that each discard input:
+built by two transformations in that same file that each discard input, at the lines the table
+below names:
 
 | # | Transformation | Where | Effect |
 |---|---|---|---|
-| 1 | `snprintf(tmpBuf, strlen(prefixAddr), "%s", prefixAddr)` | [`:175`](../../source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c) | The size argument of `snprintf` **includes the NUL terminator**, so at most `strlen - 1` characters are written: the **final character of the value is silently truncated** before any check |
-| 2 | `strchr` cuts the copy at the first `/`, then `*plen = atoi(separator)` | [`:176-188`](../../source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c) | A **partial parse**: `atoi` requires no digit, reports no error and does not require full consumption, so **everything after the `/` is absent from the validated string** and contributes only a prefix length |
-| 3 | `if (strlen(tmpBuf) < BUF_LEN_40 && *plen <= 128) strncpy(address, tmpBuf, strlen(tmpBuf) + 1)` | [`:191-197`](../../source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c) | The only guard, and it is on the copy: the out-parameter the caller receives is the **truncated, suffix-stripped** string |
+| 1 | `snprintf(tmpBuf, strlen(prefixAddr), "%s", prefixAddr)` | [`:175`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c#L175) | The size argument of `snprintf` **includes the NUL terminator**, so at most `strlen - 1` characters are written: the **final character of the value is silently truncated** before any check |
+| 2 | `strchr` cuts the copy at the first `/`, then `*plen = atoi(separator)` | [`:176-188`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c#L176-L188) | A **partial parse**: `atoi` requires no digit, reports no error and does not require full consumption, so **everything after the `/` is absent from the validated string** and contributes only a prefix length |
+| 3 | `if (strlen(tmpBuf) < BUF_LEN_40 && *plen <= 128) strncpy(address, tmpBuf, strlen(tmpBuf) + 1)` | [`:191-197`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c#L191-L197) | The only guard, and it is on the copy: the out-parameter the caller receives is the **truncated, suffix-stripped** string |
 
 Compiling that logic and running it unchanged gives these outcomes, each of which is the copy that
 `inet_pton` then judges:
@@ -3019,7 +3226,7 @@ with template markup — `{{true}}`, `{{object|…}}`, `{{param|…}}`, `{{units
 each shipped string against the official text for the same path shows that the shipped text is the
 official text cut at its first markup token, with the token's own expansion sometimes left behind.
 `voiceServiceVoiceProfileLineVoiceProcessingTransmitGain` is the clearest case: the official
-description is "Gain in `{{units}}` to apply to the transmitted voice signal prior to encoding", the
+description is "Gain in {{units}} to apply to the transmitted voice signal prior to encoding", the
 official model declares that unit literally as `01. dB` — an upstream typo for tenths of a decibel —
 and the shipped description is the three characters `Gain in 01.`, which is that substitution cut at
 the unit string's own period.
@@ -3052,18 +3259,18 @@ choice recorded there: for all four `v1` paths involved — `Capabilities.RingDe
 The eleven vendor entries have no counterpart in that model, so their corrections come from this
 repository's own data model and defaults — the parameter's type, writability and character
 restrictions from
-[`config/RdkTelcoVoiceManager_v2.xml:2146-2206`](../../config/RdkTelcoVoiceManager_v2.xml) and the
+[`config/RdkTelcoVoiceManager_v2.xml:2146-2206`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/config/RdkTelcoVoiceManager_v2.xml#L2146-L2206) and the
 `v1` equivalent at
-[`config/RdkTelcoVoiceManager_v1.xml:826,1057`](../../config/RdkTelcoVoiceManager_v1.xml), the
+[`config/RdkTelcoVoiceManager_v1.xml:826,1057`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/config/RdkTelcoVoiceManager_v1.xml#L826), the
 shipped defaults from
-[`config/telcovoice_config_default_v2.json:77-83`](../../config/telcovoice_config_default_v2.json),
+[`config/telcovoice_config_default_v2.json:77-83`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/config/telcovoice_config_default_v2.json#L77-L83),
 and the setter dispatch from
-[`source/TR-181/middle_layer_src/telcovoicemgr_dml_v2_SIP.c:4054,4059,4065`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_v2_SIP.c).
+[`source/TR-181/middle_layer_src/telcovoicemgr_dml_v2_SIP.c:4054,4059,4065`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_v2_SIP.c#L4054).
 The four `X_RDK_SKBMark` entries are the `SIP` and `RTP` socket-buffer marks the manager reads from
 the `WAN` data model with `TelcoVoiceMgrDmlGetWanSKBMarks`
-[`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:1396-1430`](../../source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c),
+[`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:1396-1430`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c#L1396-L1430),
 which defaults each to `0` when the `WAN` side does not supply it, and applies when installing the
-voice traffic rules [`:3105`](../../source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c).
+voice traffic rules [`:3105`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c#L3105).
 **Three semantics remain underived and are marked as such in the rows rather than filled in**: which
 refresh method `X_RDK_SessionRefreshForceSelectedMethod` forces, what happens when a peer refuses the
 `UPDATE` that `X_RDK_SessionRefreshRequestUseUpdate` selects, and which event packages
@@ -3085,7 +3292,7 @@ schema change upstream; `hal_schema/` is a read-only authority here.
 `hal_schema/telcovoice_hal_schema_v2.json` against the official model text for the same path, plus
 the manager configuration and source anchors cited above.*
 
-### D14 — `v2`'s readable-parameter list references twelve objects twice
+### D14 — v2's readable-parameter list references twelve objects twice
 
 **Contract defect.** `definitions.getParameterSupportedList` in `telcovoice_hal_schema_v2.json` has
 **501 `anyOf` branches referencing only 489 distinct keys**. Six keys are referenced more than once,
@@ -3121,9 +3328,9 @@ them fails it fails several times over, which distorts any failure rate computed
 501 one.** The remedy in the contract itself is a schema change upstream; `hal_schema/` is a read-only
 authority here.
 
-*Derived from `hal_schema/telcovoice_hal_schema_v2.json` (`definitions.getParameterSupportedList`)
+<i>Derived from `hal_schema/telcovoice_hal_schema_v2.json` (`definitions.getParameterSupportedList`)
 and the `v1` equivalent, by counting `anyOf` branches and distinct `$ref` targets in all four list
-definitions of both files.*
+definitions of both files.</i>
 
 ### Transport delivery guarantees the pinned library does not provide
 
@@ -3192,7 +3399,7 @@ request path**: `RESPONSE_SUCCESS` is defined and handled, but no request-path c
 a `Success` a caller receives was written by the vendor's callback into the reply header the transport
 prepared at
 [`:484`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_server.c#L484).
-And **`Invalid Argument` is emitted by nothing in the transport**: the string occurs nowhere in its
+And <b>`Invalid Argument` is emitted by nothing in the transport</b>: the string occurs nowhere in its
 sources, and it is the one member of the enumeration with no macro
 [`json-rpc-common/json_rpc_common.h:72-75`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json-rpc-common/json_rpc_common.h#L72-L75).
 Both statuses can therefore only originate in vendor code.
@@ -3209,18 +3416,18 @@ under any build. A non-conforming request is dispatched to the vendor callback a
 the mapping from an outcome to a literal is the vendor's, and neither the schema nor the transport
 constrains it. Three consequences a caller must not paper over:
 
-- **`Success` is not evidence that a mutation was committed.** Nothing in Layer 1 or Layer 2 binds it
+- <b>`Success` is not evidence that a mutation was committed.</b> Nothing in Layer 1 or Layer 2 binds it
   to applied state. On a `setParameters` it records that the server chose to answer `Success`;
   persistence, effect and convergence of dependent state are all outside this contract. Where the
   effect matters, read the affected parameter back — for service enablement,
   `Device.Services.VoiceService.{i}.X_RDK_Status` rather than the status of the write. The status also
   covers the whole request rather than each `params` entry, so a multi-parameter `setParameters` has
   no per-entry outcome either way.
-- **`Failed` and `Invalid Argument` are not a defined partition.** A vendor may answer either for a
+- <b>`Failed` and `Invalid Argument` are not a defined partition.</b> A vendor may answer either for a
   rejected value, and the transport's own `Failed` covers any callback error whatever. A caller must
   not infer from `Failed` that the request was well-formed, nor from `Invalid Argument` that it was
   not.
-- **`Not Supported` is the only status with partly established meaning**, and only for the
+- <b>`Not Supported` is the only status with partly established meaning</b>, and only for the
   transport's own three emissions — unrecognised action, missing handler, or a reply the server itself
   could not validate. What a vendor answers for a parameter it has not implemented is **not
   specified**: the optional-list reading is the natural one and this document uses it, but nothing in
@@ -3282,7 +3489,7 @@ otherwise
 string for equality against each of the four values. The transport defines macros for only three of
 them — `JSON_RPC_STATUS_SUCCESS`, `JSON_RPC_STATUS_FAILED`, `JSON_RPC_STATUS_NOT_SUPPORTED`
 [`json-rpc-common/json_rpc_common.h:72-75`](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json-rpc-common/json_rpc_common.h#L72-L75) — so
-**`Invalid Argument` has no macro and must be compared as a string literal**. The field name is
+<b>`Invalid Argument` has no macro and must be compared as a string literal</b>. The field name is
 `JSON_RPC_PARAM_STATUS_FIELD` and its parent is `JSON_RPC_FILED_RESULT`, whose spelling is upstream's
 and is the identifier a caller must type.
 
@@ -3306,7 +3513,7 @@ Three failure modes are **not** reported through `Result.Status` and need separa
 `voiceServiceX_RDK_Firewall_Rule_Data`, so `Device.Services.VoiceService.{i}.X_RDK_Firewall_Rule_Data`
 is the only parameter either schema permits a subscription to, and the only parameter a
 `publishEvent` may name. The manager subscribes once per voice service instance
-[`source/TelcoVoiceManager/telcovoicemgr_controller.c:38-42`](../../source/TelcoVoiceManager/telcovoicemgr_controller.c).
+[`source/TelcoVoiceManager/telcovoicemgr_controller.c:38-42`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TelcoVoiceManager/telcovoicemgr_controller.c#L38-L42).
 
 ### Notification types, and why two of them are specific to this HAL
 
@@ -3337,7 +3544,7 @@ The two differ in the bound on that wait
 | `onChangeSyncTimeout` | Publish, then wait for the client's event reply | 10 seconds, after which the publish call returns an error |
 
 This manager subscribes with `onChangeSyncTimeout`
-[`source/TelcoVoiceManager/telcovoicemgr_controller.c:40-41`](../../source/TelcoVoiceManager/telcovoicemgr_controller.c),
+[`source/TelcoVoiceManager/telcovoicemgr_controller.c:40-41`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TelcoVoiceManager/telcovoicemgr_controller.c#L40-L41),
 so a conforming server publishing the firewall event blocks for up to ten seconds waiting for an
 acknowledgement that **only a client built with `JSON_BLOCKING_SUBSCRIBE_EVENT` sends**. Neither
 build flag is set by anything in this repository, so whether the acknowledgement is sent at all is a
@@ -3383,7 +3590,7 @@ Three consequences bear directly on how a subscriber may be written:
 Acquiring a lock that a HAL-calling path also holds produces the same cycle from the other side, and
 this manager contains a worked instance of it — the `mDataMutex` inversion between
 `Line_GetParamStringValue` and `eventcb_FirewallRuleData`, set out with its lock order under
-`Threading Model` in [`halSpec.md`](halSpec.md). The requirement that follows is in the next
+`Threading Model` in [halSpec.md](halSpec.md). The requirement that follows is in the next
 section's item 5.
 
 ### What a subscriber must do before using an event, and what this manager currently does
@@ -3416,11 +3623,11 @@ here because a deployment has to close it rather than assume it is closed:
   so a delivered name that is a **prefix** of the subscribed path selects the callback.
 - The manager's callback then tests the name with `strstr`, a substring search, against the macro
   `X_RDK_Firewall_Rule_Data`
-  [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1273-1334`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c),
+  [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1273-1334`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c#L1273-L1334),
   so any parameter path containing that text anywhere is accepted as the firewall event.
 - Its parameter extractor reads only the first `params` entry's `name` and `value` and validates
   neither the action, the envelope, the `type`, nor the value against the schema
-  [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1059-1110`](../../source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c).
+  [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1059-1110`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c#L1059-L1110).
   It also copies both strings with `strncpy(..., 255)` into 256-byte arrays
   [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1083`] and
   [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1094`], destinations at
@@ -3440,7 +3647,7 @@ here because a deployment has to close it rather than assume it is closed:
   surviving address and the original port text are interpolated into `iptables` or `ip6tables`
   command strings that are executed by **five `system()` calls** at lines 518, 520, 525, 528 and 531
   of
-  [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:499-531`](../../source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c).
+  [`source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c:499-531`](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c#L499-L531).
   The full chain, the two parser defects it carries and the obligation it creates are recorded as
   `D12` under `Contract Defects`; the address validator's own defect is `D11`.
 - All of that runs **on the receive thread and under `mDataMutex`**, in place rather than handed off:
@@ -3451,7 +3658,7 @@ here because a deployment has to close it rather than assume it is closed:
   [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c:1314`] on the error path — before setting
   the system event. Item 5 above is therefore unmet as well, and it is the item that turns the
   concurrent getter path into the deadlock recorded under `Threading Model` in
-  [`halSpec.md`](halSpec.md).
+  [halSpec.md](halSpec.md).
 
 The consequence is that firewall state — and, through it, shell command construction — is driven
 from an unvalidated, loosely matched external message. Closing it needs exact-equality name
