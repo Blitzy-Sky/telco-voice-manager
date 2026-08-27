@@ -993,7 +993,7 @@ and what each changes.
 
 ### Variability Management
 
-**The schema is versioned, and its version is not yours to change.** The envelope's `version` field
+**The schema is versioned, and its version is not the caller's to change.** The envelope's `version` field
 is bound to the `schemaVersion` definition, a `const` of **`0.0.1`** in both shipped files. The
 schema states in that definition's own description that the value must not be modified and that HAL
 operation cannot be performed without the correct supported version. Each schema file additionally
