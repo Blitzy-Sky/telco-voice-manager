@@ -435,9 +435,13 @@ decrements the reference count rather than freeing unconditionally.
 #### Module Responsibilities
 
 - The client library owns the receive buffer on the reply path and the reassembly of a reply that
-  spans multiple reads [`tcp_client.c:188-212`]. A caller never sees a partial document. The server
-  side of the transport provides no equivalent reassembly, which is why the bound above applies to
-  the request direction only.
+  spans multiple reads [`tcp_client.c:188-212`]. That assembly is occupancy-driven rather than
+  framed: a read that does not fill the buffer ends it whether or not the JSON is complete, so
+  what the assembly yields is not guaranteed to be a whole document. A caller does not receive
+  the partial text - the next statement explains why - but it does lose the exchange, because a
+  truncated document fails to parse and no handle is produced. The server side of the transport
+  provides no equivalent reassembly, which is why the bound above applies to the request
+  direction only.
 - The library populates the reply handle only when it has a complete, parsed document, and it
   transfers that handle to the caller, who becomes responsible for releasing it.
 - The vendor server owns everything on its side of the socket. It must not assume that a client
