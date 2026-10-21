@@ -116,19 +116,19 @@ input the transport mishandles. `action` is copied the same way, but its longest
 The `action` enumeration has eleven members, listed in schema order. Eight are bound to a payload by
 an `allOf` block; three travel as the bare envelope.
 
-| # | Action | Direction | Payload the schema binds | Required members of each `params` entry |
-|---|---|---|---|---|
-| 1 | `getSchema` | client to server | none — bare envelope | not applicable |
-| 2 | `getParameters` | client to server | `params`, array, `minItems` 1, `uniqueItems` | `name` |
-| 3 | `getParametersResponse` | server to client | `params`, array, `minItems` 1, `uniqueItems` | `name`, `type`, `value` |
-| 4 | `setParameters` | client to server | `params`, array, `minItems` 1, `uniqueItems` | `name`, `type`, `value` |
-| 5 | `subscribeEvent` | client to server | `params`, array, `minItems` 1, `uniqueItems` | `name`, `notificationType` |
-| 6 | `getActiveSubscriptions` | client to server | none — bare envelope | not applicable |
-| 7 | `getActiveSubscriptionsResponse` | server to client | none — bare envelope | not applicable |
-| 8 | `getSchemaResponse` | server to client | `SchemaInfo`, object | `FilePath`, a string matching `^(.+)/([^/]+)$` |
-| 9 | `publishEvent` | server to client | `params`, array, `minItems` 1, `uniqueItems` | `name`, `type`, `value` |
-| 10 | `deleteObject` | client to server | `params`, array, `minItems` 1, `uniqueItems` | `name` — but see `Contract Defects`: the payload branch list is empty, so no valid message exists |
-| 11 | `result` | server to client | `Result`, object, `additionalProperties: false` | `Status`, from `resultStatusEnumList` |
+| Action | Direction | Payload the schema binds | Required members of each `params` entry |
+|---|---|---|---|
+| `getSchema` | client to server | none — bare envelope | not applicable |
+| `getParameters` | client to server | `params`, array, `minItems` 1, `uniqueItems` | `name` |
+| `getParametersResponse` | server to client | `params`, array, `minItems` 1, `uniqueItems` | `name`, `type`, `value` |
+| `setParameters` | client to server | `params`, array, `minItems` 1, `uniqueItems` | `name`, `type`, `value` |
+| `subscribeEvent` | client to server | `params`, array, `minItems` 1, `uniqueItems` | `name`, `notificationType` |
+| `getActiveSubscriptions` | client to server | none — bare envelope | not applicable |
+| `getActiveSubscriptionsResponse` | server to client | none — bare envelope | not applicable |
+| `getSchemaResponse` | server to client | `SchemaInfo`, object | `FilePath`, a string matching `^(.+)/([^/]+)$` |
+| `publishEvent` | server to client | `params`, array, `minItems` 1, `uniqueItems` | `name`, `type`, `value` |
+| `deleteObject` | client to server | `params`, array, `minItems` 1, `uniqueItems` | `name` — but see `Contract Defects`: the payload branch list is empty, so no valid message exists |
+| `result` | server to client | `Result`, object, `additionalProperties: false` | `Status`, from `resultStatusEnumList` |
 
 **There is no `setParametersResponse`.** A write is acknowledged by the generic `result` action, as
 are a subscription and a delete attempt, so `result` is the reply in three workflows. The
@@ -148,9 +148,16 @@ for a subscription list (`D7`).
 - **The identifier has no wrap value.** The counter is a signed `int`; its `if (g_req_id > INT_MAX)`
   reset can never fire, and incrementing past `INT_MAX` is undefined behaviour. A test must neither
   expect a wrap nor name a value the identifier wraps to.
-- **The reply wait is bounded and clamped.** `json_hal_client_send_and_get_reply` waits 40 ticks of
-  250 ms, about ten seconds. `json_hal_client_send_and_get_reply_with_timeout` clamps its timeout to
-  between 10 and 120 seconds. RdkTelcoVoiceManager passes 60 seconds.
+- **The reply wait is a tick budget, not a time bound.** The caller blocks on an untimed condition
+  wait, and the request expires only when the receive thread's idle callback, run once per
+  receive-loop pass, has counted its ticks down. Each pass waits at most 250 ms (`LOOP_TIMEOUT`) for
+  data, so the 40 ticks of `json_hal_client_send_and_get_reply` are nominally ten seconds, and
+  `json_hal_client_send_and_get_reply_with_timeout` converts its seconds to ticks clamped to 40–480,
+  nominally 10–120 seconds. RdkTelcoVoiceManager passes `HAL_SEND_AND_REPLY_TIMEOUT`, 60 (240 ticks),
+  for reads and writes; its subscriptions and deletions take the 40-tick default. Arriving data ends
+  a pass early, so a request can expire sooner; the ticker stops while a partial reply sits in the
+  accumulator (`Message framing`) or an event callback runs (`Direction and execution context`), so a
+  wait can last indefinitely.
 
 ### Message framing
 
@@ -191,30 +198,50 @@ RdkTelcoVoiceManager does not do so on its event path (`Event Model`).
 ### Per-action validation behaviour
 
 `Rejected` means a conforming validator reports the instance invalid. `Accepted` means the schema
-states nothing that would reject it, which does not mean the server tolerates it.
+states nothing that would reject it, which does not mean the server tolerates it. A message missing
+any of the four envelope fields is `Rejected` for every action.
 
-| Action | Direction | Any of the four envelope fields missing | `params` / payload member absent | `params: []` | `null` as a `value` | Member no schema defines |
-|---|---|---|---|---|---|---|
-| `getSchema` | client to server | Rejected | Accepted — no payload is bound | Accepted — `params` is unconstrained for this action | not applicable | Accepted at the root |
-| `getParameters` | client to server | Rejected | Rejected — `params` is required | Rejected — `minItems` 1 | Rejected — a `params` entry permits only the members its definition declares, and `additionalProperties: false` forbids the rest | Rejected inside a `params` entry, accepted at the root |
-| `getParametersResponse` | server to client | Rejected | Rejected — `params` is required | Rejected — `minItems` 1 | Rejected — every leaf that declares a `value` constrains its JSON type | Rejected inside a `params` entry, accepted at the root |
-| `setParameters` | client to server | Rejected | Rejected — `params` is required | Rejected — `minItems` 1 | Rejected — same constraint as above | Rejected inside a `params` entry, accepted at the root |
-| `subscribeEvent` | client to server | Rejected | Rejected — `params` is required | Rejected — `minItems` 1 | Rejected — `notificationType` is an enumeration and `name` is a pattern | Rejected inside a `params` entry, accepted at the root |
-| `getActiveSubscriptions` | client to server | Rejected | Accepted — no payload is bound | Accepted — `params` is unconstrained for this action | not applicable | Accepted at the root |
-| `getActiveSubscriptionsResponse` | server to client | Rejected | Accepted — no payload is bound | Accepted — `params` is unconstrained for this action | not applicable | Accepted at the root |
-| `getSchemaResponse` | server to client | Rejected | Rejected — `SchemaInfo` is required | not applicable | Rejected — `FilePath` must be a string matching its pattern | Rejected inside `SchemaInfo`, accepted at the root |
-| `publishEvent` | server to client | Rejected | Rejected — `params` is required | Rejected — `minItems` 1 | Rejected — the one subscribable event constrains `value` by pattern | Rejected inside a `params` entry, accepted at the root |
-| `deleteObject` | client to server | Rejected | Rejected — `params` is required | Rejected — `minItems` 1 | Rejected — as is every other instance, because the branch list is empty | Rejected — every instance is |
-| `result` | server to client | Rejected | Rejected — `Result` is required | not applicable | Rejected — `Status` must be an enumerated member | Rejected inside `Result`, accepted at the root |
+A missing or empty payload:
 
-`params: []` is rejected for the eight actions that bind a payload and accepted for the three that do
-not. The client's request helper attaches an empty `params` array to every action whose name does not
+| Action | Direction | `params` / payload member absent | `params: []` |
+|---|---|---|---|
+| `getSchema` | client to server | Accepted — no payload is bound | Accepted — `params` is unconstrained for this action |
+| `getParameters` | client to server | Rejected — `params` is required | Rejected — `minItems` 1 |
+| `getParametersResponse` | server to client | Rejected — `params` is required | Rejected — `minItems` 1 |
+| `setParameters` | client to server | Rejected — `params` is required | Rejected — `minItems` 1 |
+| `subscribeEvent` | client to server | Rejected — `params` is required | Rejected — `minItems` 1 |
+| `getActiveSubscriptions` | client to server | Accepted — no payload is bound | Accepted — `params` is unconstrained for this action |
+| `getActiveSubscriptionsResponse` | server to client | Accepted — no payload is bound | Accepted — `params` is unconstrained for this action |
+| `getSchemaResponse` | server to client | Rejected — `SchemaInfo` is required | Accepted alongside `SchemaInfo` — `params` is unconstrained for this action |
+| `publishEvent` | server to client | Rejected — `params` is required | Rejected — `minItems` 1 |
+| `deleteObject` | client to server | Rejected — `params` is required | Rejected — `minItems` 1 |
+| `result` | server to client | Rejected — `Result` is required | Accepted alongside `Result` — `params` is unconstrained for this action |
+
+A `null` value or a member no schema defines:
+
+| Action | `null` as a `value` | Member no schema defines |
+|---|---|---|
+| `getSchema` | not applicable | Accepted at the root |
+| `getParameters` | Rejected — a `params` entry permits only the members its definition declares, and `additionalProperties: false` forbids the rest | Rejected inside a `params` entry, accepted at the root |
+| `getParametersResponse` | Rejected — every leaf that declares a `value` constrains its JSON type | Rejected inside a `params` entry, accepted at the root |
+| `setParameters` | Rejected — same constraint as above | Rejected inside a `params` entry, accepted at the root |
+| `subscribeEvent` | Rejected — `notificationType` is an enumeration and `name` is a pattern | Rejected inside a `params` entry, accepted at the root |
+| `getActiveSubscriptions` | not applicable | Accepted at the root |
+| `getActiveSubscriptionsResponse` | not applicable | Accepted at the root |
+| `getSchemaResponse` | Rejected — `FilePath` must be a string matching its pattern | Rejected inside `SchemaInfo`, accepted at the root |
+| `publishEvent` | Rejected — the one subscribable event constrains `value` by pattern | Rejected inside a `params` entry, accepted at the root |
+| `deleteObject` | Rejected — as is every other instance, because the branch list is empty | Rejected — every instance is |
+| `result` | Rejected — `Status` must be an enumerated member | Rejected inside `Result`, accepted at the root |
+
+`params: []` is rejected for the six actions that bind `params` and accepted for the other five.
+The client's request helper attaches an empty `params` array to every action whose name does not
 begin with `getSchema`, so a helper-built `getActiveSubscriptions` validates only because nothing
 constrains `params` for that action. Unknown members are rejected inside a payload and accepted at the
 root.
 
-**The `uniqueItems` keyword does not make a parameter name unique.** It rejects only byte-identical entries, so
-one `params` array may name the same parameter twice with different content and still validate.
+**The `uniqueItems` keyword does not make a parameter name unique.** It rejects only JSON-equal
+entries (objects equal member by member in any order, numbers equal by value), so one `params` array
+may name the same parameter twice with different content and still validate.
 Measured with a draft-07 validator on `Device.Services.VoiceService.1.VoiceProfile.1.Enable` (`v1`),
 `Device.Services.VoiceService.1.ISDN.BRI.1.Enable` (`v2`) and, for both event rows,
 `Device.Services.VoiceService.1.X_RDK_Firewall_Rule_Data`:
@@ -226,7 +253,7 @@ Measured with a draft-07 validator on `Device.Services.VoiceService.1.VoiceProfi
 | `subscribeEvent`, one parameter named twice with `onChange` and `onChangeSync` | **valid** | **valid** |
 | `publishEvent`, one parameter named twice with two different values | **valid** | **valid** |
 | `getParameters`, one parameter named twice | invalid — `uniqueItems` | not measurable — see `D2` |
-| any of the above repeated byte-for-byte | invalid — `uniqueItems` | invalid — `uniqueItems` |
+| any of the above with an entry repeated as a JSON-equal copy | invalid — `uniqueItems` | invalid — `uniqueItems`; not measurable for the two read-path cases, see `D2` |
 
 Only `getParameters` and `deleteObject` are protected, because their entries carry `name` alone. The
 schema gives `params` no order and `result` carries one `Status` for the whole message, so a caller
@@ -243,7 +270,7 @@ the contract in practice.
 |---|---|---|
 | `json_hal_client_init` | Loads the configuration file and the schema file it names, taking `moduleName` and `schemaVersion` from the schema | Builds no validator. Fails if the schema file is absent, unparseable or missing either `const` |
 | `json_hal_client_get_request_header` | Builds the envelope: `module` and `version` from configuration, `reqId` as a decimal string of at least eight digits, `action` as given | Attaches an empty `params` array to every action whose name does not begin with `getSchema`; `getSchemaResponse` matches that prefix too and receives none |
-| `json_hal_client_send_and_get_reply` | Sends and blocks for the correlated reply | Ten-second floor on the wait, and the caller must serialise submissions. The reply out-parameter is written on success only: initialise it to `NULL` and do not read it after a failure. Even on success it is `NULL` if the received bytes do not parse |
+| `json_hal_client_send_and_get_reply` | Sends and blocks for the correlated reply | A nominal ten-second tick budget, not a time bound (`Correlation, blocking and timeouts`), and the caller must serialise submissions. The reply out-parameter is written on success only: initialise it to `NULL` and do not read it after a failure. Even on success it is `NULL` if the received bytes do not parse |
 | `json_hal_get_param` | Copies one `params` entry into a caller-supplied `hal_param_t` — `char name[256]; char value[2048]; eParamType type` | The copy outlives the reply and must not be freed. Usable lengths are 255 and 2047 bytes; a longer source is truncated and left unterminated (`CWE-170`). The `type` test is a prefix comparison, so `stringList` is read as `string`. An unknown `type`, and the `PUBLISHEVENT_RESPONSE_MESSAGE` action, return success with the structure still zeroed |
 | `json_hal_add_param` | Renders a `hal_param_t` into a `params` entry, converting numbers with `atoi`, `atol` or `atoll` and emitting them through `json_object_new_int` or `json_object_new_int64` | Emits unsigned values through signed constructors (`Numeric conversion`). The `ato*` functions report no error, so non-numeric text reads as zero. A `boolean` is accepted only as `true`, `TRUE`, `false` or `FALSE` |
 | `json_hal_client_subscribe_event` | Sends `subscribeEvent`, releases the reply, then appends the callback to the `static` list `g_event_tracking` | Never reads `Result.Status`: success means a reply arrived, not that the server accepted the subscription |
@@ -336,11 +363,11 @@ The `Access` column follows `setParameterSupportedList` and `setParameterOptiona
 which a conforming server enforces. The `(Access = …)` marker, present on 351 of 353 `v1` and 769 of
 776 `v2` parameters, is only a cross-check, and it contradicts the lists in three places:
 
-| Variant | Definition key | TR-181 path | `(Access = ...)` marker says | Set-list membership |
-|---|---|---|---|---|
-| v1 | `voiceServiceX_RDK_BoundIpAddr` | `Device.Services.VoiceService.{i}.X_RDK_BoundIpAddr` | `Read-Write` | in neither set list |
-| v2 | `voiceServiceSIPClientX_RDK_LastChange` | `Device.Services.VoiceService.{i}.SIP.Client.{i}.X_RDK_LastChange` | `Read` | `setParameterOptionalList` |
-| v2 | `voiceServiceX_RDK_BoundIpAddr` | `Device.Services.VoiceService.{i}.X_RDK_BoundIpAddr` | `Read-Write` | in neither set list |
+| TR-181 path · definition key · variant | `(Access = ...)` marker says | Set-list membership |
+|---|---|---|
+| `Device.Services.VoiceService.{i}.X_RDK_BoundIpAddr` · `voiceServiceX_RDK_BoundIpAddr` · *v1* | `Read-Write` | in neither set list |
+| `Device.Services.VoiceService.{i}.SIP.Client.{i}.X_RDK_LastChange` · `voiceServiceSIPClientX_RDK_LastChange` · *v2* | `Read` | `setParameterOptionalList` |
+| `Device.Services.VoiceService.{i}.X_RDK_BoundIpAddr` · `voiceServiceX_RDK_BoundIpAddr` · *v2* | `Read-Write` | in neither set list |
 
 Treat `voiceServiceX_RDK_BoundIpAddr` as read-only: it is in neither set list, so a conforming server
 rejects a write. `voiceServiceSIPClientX_RDK_LastChange` is in `setParameterOptionalList` despite its
@@ -351,18 +378,18 @@ rejects a write. `voiceServiceSIPClientX_RDK_LastChange` is in `setParameterOpti
 Ten date and time definitions — one in `v1`, nine in `v2` — declare `name` and a `type` with no
 `const`, no `value` property and `additionalProperties: false`.
 
-| Variant | Definition key | TR-181 path | Value constraint | List membership |
-|---|---|---|---|---|
-| v1 | `voiceServiceVoiceProfileLineSessionSessionStartTime` | `Device.Services.VoiceService.{i}.VoiceProfile.{i}.Line.{i}.Session.{i}.SessionStartTime` | type label absent, constraint absent | `getParameterSupportedList` |
-| v2 | `voiceServiceCallLogSessionStart` | `Device.Services.VoiceService.{i}.CallLog.{i}.Session.{i}.Start` | type label absent, constraint absent | `getParameterSupportedList` |
-| v2 | `voiceServiceCallLogStart` | `Device.Services.VoiceService.{i}.CallLog.{i}.Start` | type label absent, constraint absent | `getParameterSupportedList` |
-| v2 | `voiceServiceDECTPortableLastUpdateDateTime` | `Device.Services.VoiceService.{i}.DECT.Portable.{i}.LastUpdateDateTime` | type label absent, constraint absent | `getParameterOptionalList` |
-| v2 | `voiceServiceDECTPortableSubscriptionTime` | `Device.Services.VoiceService.{i}.DECT.Portable.{i}.SubscriptionTime` | type label absent, constraint absent | `getParameterOptionalList` |
-| v2 | `voiceServiceInterworkFirewallRuleSetTime` | `Device.Services.VoiceService.{i}.Interwork.{i}.FirewallRuleSetTime` | type label absent, constraint absent | `getParameterOptionalList` and `setParameterOptionalList` |
-| v2 | `voiceServiceInterworkInterworkingRuleSetTime` | `Device.Services.VoiceService.{i}.Interwork.{i}.InterworkingRuleSetTime` | type label absent, constraint absent | `getParameterOptionalList` and `setParameterOptionalList` |
-| v2 | `voiceServiceInterworkMapLastTime` | `Device.Services.VoiceService.{i}.Interwork.{i}.Map.{i}.LastTime` | type label absent, constraint absent | `getParameterOptionalList` |
-| v2 | `voiceServiceSIPClientContactExpireTime` | `Device.Services.VoiceService.{i}.SIP.Client.{i}.Contact.{i}.ExpireTime` | type label absent, constraint absent | `getParameterOptionalList` |
-| v2 | `voiceServiceSIPRegistrarAccountContactExpireTime` | `Device.Services.VoiceService.{i}.SIP.Registrar.{i}.Account.{i}.Contact.{i}.ExpireTime` | type label absent, constraint absent | `getParameterSupportedList` |
+| TR-181 path · definition key · variant | Value constraint | List membership |
+|---|---|---|
+| `Device.Services.VoiceService.{i}.VoiceProfile.{i}.Line.{i}.Session.{i}.SessionStartTime` · `voiceServiceVoiceProfileLineSessionSessionStartTime` · *v1* | type label absent, constraint absent | `getParameterSupportedList` |
+| `Device.Services.VoiceService.{i}.CallLog.{i}.Session.{i}.Start` · `voiceServiceCallLogSessionStart` · *v2* | type label absent, constraint absent | `getParameterSupportedList` |
+| `Device.Services.VoiceService.{i}.CallLog.{i}.Start` · `voiceServiceCallLogStart` · *v2* | type label absent, constraint absent | `getParameterSupportedList` |
+| `Device.Services.VoiceService.{i}.DECT.Portable.{i}.LastUpdateDateTime` · `voiceServiceDECTPortableLastUpdateDateTime` · *v2* | type label absent, constraint absent | `getParameterOptionalList` |
+| `Device.Services.VoiceService.{i}.DECT.Portable.{i}.SubscriptionTime` · `voiceServiceDECTPortableSubscriptionTime` · *v2* | type label absent, constraint absent | `getParameterOptionalList` |
+| `Device.Services.VoiceService.{i}.Interwork.{i}.FirewallRuleSetTime` · `voiceServiceInterworkFirewallRuleSetTime` · *v2* | type label absent, constraint absent | `getParameterOptionalList` and `setParameterOptionalList` |
+| `Device.Services.VoiceService.{i}.Interwork.{i}.InterworkingRuleSetTime` · `voiceServiceInterworkInterworkingRuleSetTime` · *v2* | type label absent, constraint absent | `getParameterOptionalList` and `setParameterOptionalList` |
+| `Device.Services.VoiceService.{i}.Interwork.{i}.Map.{i}.LastTime` · `voiceServiceInterworkMapLastTime` · *v2* | type label absent, constraint absent | `getParameterOptionalList` |
+| `Device.Services.VoiceService.{i}.SIP.Client.{i}.Contact.{i}.ExpireTime` · `voiceServiceSIPClientContactExpireTime` · *v2* | type label absent, constraint absent | `getParameterOptionalList` |
+| `Device.Services.VoiceService.{i}.SIP.Registrar.{i}.Account.{i}.Contact.{i}.ExpireTime` · `voiceServiceSIPRegistrarAccountContactExpireTime` · *v2* | type label absent, constraint absent | `getParameterSupportedList` |
 
 Because `value` is forbidden while `getParametersResponse` and `setParameters` require it, no message
 can carry a value for these parameters: a `getParameters` request naming one is valid, but every
@@ -627,7 +654,7 @@ backslash when copying a pattern out.
 
 1 definition key in this group - 1 defined in `telcovoice_hal_schema_v1.json`, 1 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceHalInit` · `servicesVoiceHalInit` · *v1 + v2* | `boolean` - JSON boolean | Read-Write - no `(Access = ...)` marker (`setParameterOptionalList`) | The top-level object for VoIP CPE. |
 
@@ -663,7 +690,7 @@ schema constrains only their syntax.
   unauthenticated and `pwdSymEnc` and `pwdHash` rest on a shared password; rely on `certSign`, `tls`
   or `ipsec`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.Capabilities.ButtonMap` · `voiceServiceCapabilitiesButtonMap` · *v1 only* | `boolean` - JSON boolean | Read-Only (`getParameterSupportedList`) | Support for a configurable button map. |
 | `Device.Services.VoiceService.{i}.Capabilities.Codec.{i}.BitRate` · `voiceServiceCapabilitiesCodecBitRate` · *v2 only* | `unsignedInt` - JSON integer; minimum 0 | Read-Only (`getParameterSupportedList`) | Bit rate, specified in bits per second. |
@@ -759,7 +786,7 @@ schema constrains only their syntax.
 
 280 definition keys in this group - 280 defined in `telcovoice_hal_schema_v1.json`, 0 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.VoiceProfile.{i}.ButtonMap.Button.{i}.ButtonMessage` · `voiceServiceVoiceProfileButtonMapButtonButtonMessage` · *v1 only* | `string` - JSON string; maxLength 64 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | This string represents the message to be displayed on the screen when the button or function key is pressed. |
 | `Device.Services.VoiceService.{i}.VoiceProfile.{i}.ButtonMap.Button.{i}.ButtonName` · `voiceServiceVoiceProfileButtonMapButtonButtonName` · *v1 only* | `string` - JSON string; maxLength 16 | Read-Only (`getParameterOptionalList`) | Name of the Button. |
@@ -1046,7 +1073,7 @@ schema constrains only their syntax.
 
 42 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 42 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.VoIPProfile.{i}.DTMFMethod` · `voiceServiceVoIPProfileDTMFMethod` · *v2 only* | `string` - JSON string; maxLength 256; pattern `^(InBand\|RFC4733\|SIPInfo)(,(InBand\|RFC4733\|SIPInfo))*$` | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Comma-separated list of strings. |
 | `Device.Services.VoiceService.{i}.VoIPProfile.{i}.DTMFMethodG711` · `voiceServiceVoIPProfileDTMFMethodG711` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Method by which DTMF digits MUST be passed if the current codec is G.711. |
@@ -1095,7 +1122,7 @@ schema constrains only their syntax.
 
 4 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 4 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.CodecProfile.{i}.Codec` · `voiceServiceCodecProfileCodec` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Only (`getParameterSupportedList`) | The value MUST be the Path Name of a row in the Capabilities.Codec table. |
 | `Device.Services.VoiceService.{i}.CodecProfile.{i}.Enable` · `voiceServiceCodecProfileEnable` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterOptionalList`, `getParameterSupportedList`) | Enable or disable the use of this combination of codec parameters. |
@@ -1106,7 +1133,7 @@ schema constrains only their syntax.
 
 152 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 152 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.SIP.Client.{i}.AuthPassword` · `voiceServiceSIPClientAuthPassword` · *v2 only* | `string` - JSON string; maxLength 128 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Password used to authenticate the connection to the server. |
 | `Device.Services.VoiceService.{i}.SIP.Client.{i}.AuthUserName` · `voiceServiceSIPClientAuthUserName` · *v2 only* | `string` - JSON string; maxLength 128 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Username used to authenticate the connection to the server. |
@@ -1265,7 +1292,7 @@ schema constrains only their syntax.
 
 26 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 26 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.H323.Client.{i}.AuthPassword` · `voiceServiceH323ClientAuthPassword` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Password to be used when H.235 is enabled. |
 | `Device.Services.VoiceService.{i}.H323.Client.{i}.Enable` · `voiceServiceH323ClientEnable` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Enable or disable this client. |
@@ -1298,7 +1325,7 @@ schema constrains only their syntax.
 
 30 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 30 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.MGCP.Client.{i}.Domain` · `voiceServiceMGCPClientDomain` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | CPE domain string. |
 | `Device.Services.VoiceService.{i}.MGCP.Client.{i}.Enable` · `voiceServiceMGCPClientEnable` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Enable or disable this client. |
@@ -1335,7 +1362,7 @@ schema constrains only their syntax.
 
 34 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 34 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.ISDN.BRI.{i}.ApplicationInterface` · `voiceServiceISDNBRIApplicationInterface` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterOptionalList`, `getParameterSupportedList`) | Specify the type of application that uses the interface. |
 | `Device.Services.VoiceService.{i}.ISDN.BRI.{i}.BidirectionalBChannels` · `voiceServiceISDNBRIBidirectionalBChannels` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Comma-separated list of unsigned integers (value 1 to 2), reserved B-channels which can be used bidirectional. |
@@ -1376,7 +1403,7 @@ schema constrains only their syntax.
 
 38 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 38 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.POTS.FXO.{i}.Active` · `voiceServicePOTSFXOActive` · *v2 only* | `boolean` - JSON boolean | Read-Only (`getParameterOptionalList`) | Determines if this physical interface is plugged. |
 | `Device.Services.VoiceService.{i}.POTS.FXO.{i}.CallerIdDetectionEnable` · `voiceServicePOTSFXOCallerIdDetectionEnable` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Enables the detection of CallerId for incoming calls. |
@@ -1421,7 +1448,7 @@ schema constrains only their syntax.
 
 39 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 39 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.DECT.Base.{i}.CipheringEnable` · `voiceServiceDECTBaseCipheringEnable` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Enable or disable ciphering for the calls on the DECT domain. |
 | `Device.Services.VoiceService.{i}.DECT.Base.{i}.EepromVersion` · `voiceServiceDECTBaseEepromVersion` · *v2 only* | `string` - JSON string; maxLength 20 | Read-Only (`getParameterOptionalList`) | EEPROM version of the base as defined in [ETSI_TS_102_527-3]. |
@@ -1467,7 +1494,7 @@ schema constrains only their syntax.
 
 28 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 28 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.Terminal.{i}.Audio.{i}.Name` · `voiceServiceTerminalAudioName` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | The internal name of this audio. |
 | `Device.Services.VoiceService.{i}.Terminal.{i}.Audio.{i}.VoiceProcessing.EchoCancellationEnable` · `voiceServiceTerminalAudioVoiceProcessingEchoCancellationEnable` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Enable or disable echo cancellation for this line. |
@@ -1502,7 +1529,7 @@ schema constrains only their syntax.
 
 12 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 12 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.Trunk.{i}.CodecPriority` · `voiceServiceTrunkCodecPriority` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | The CodecPriority option controls which end of an inbound call leg will have priority over the negotiation of codecs. |
 | `Device.Services.VoiceService.{i}.Trunk.{i}.DDIRange` · `voiceServiceTrunkDDIRange` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Comma-separated list of strings. |
@@ -1521,7 +1548,7 @@ schema constrains only their syntax.
 
 148 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 148 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.CallControl.CallingFeatures.Set.{i}.AnonymousCallEnable` · `voiceServiceCallControlCallingFeaturesSetAnonymousCallEnable` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Enable or disable Anonymous Call capability in the endpoint (CLIR). |
 | `Device.Services.VoiceService.{i}.CallControl.CallingFeatures.Set.{i}.AnonymousCallRejectionEnable` · `voiceServiceCallControlCallingFeaturesSetAnonymousCallRejectionEnable` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Enable or disable Anonymous Call Block capability in the endpoint (ACR). |
@@ -1676,7 +1703,7 @@ schema constrains only their syntax.
 
 95 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 95 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.CallLog.{i}.CallTerminationCause` · `voiceServiceCallLogCallTerminationCause` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Only (`getParameterSupportedList`) | The call termination cause. |
 | `Device.Services.VoiceService.{i}.CallLog.{i}.CalledPartyNumber` · `voiceServiceCallLogCalledPartyNumber` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Only (`getParameterSupportedList`) | Number of destination party of the call. |
@@ -1778,7 +1805,7 @@ schema constrains only their syntax.
 
 33 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 33 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.Interwork.{i}.E164Client` · `voiceServiceInterworkE164Client` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | The value MUST be the Path Name of a row in the SIP.Client table. |
 | `Device.Services.VoiceService.{i}.Interwork.{i}.E164Mode` · `voiceServiceInterworkE164Mode` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | This attribute indicates whether or not the CPE performs E.164 routing of incoming requests received from the service provider network when the target Endpoint is a PBX. |
@@ -1818,7 +1845,7 @@ schema constrains only their syntax.
 
 23 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 23 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.Tone.DefautEventProfile` · `voiceServiceToneDefautEventProfile` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | The value MUST be the Path Name of a row in the Tone.EventProfile table. |
 | `Device.Services.VoiceService.{i}.Tone.Description.{i}.ToneEnable` · `voiceServiceToneDescriptionToneEnable` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Enables or disables the tone entry. |
@@ -1848,7 +1875,7 @@ schema constrains only their syntax.
 
 7 definition keys in this group - 7 defined in `telcovoice_hal_schema_v1.json`, 0 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.PhyInterface.{i}.Description` · `voiceServicePhyInterfaceDescription` · *v1 only* | `string` - JSON string; maxLength 32 | Read-Only (`getParameterOptionalList`) | A description of the physical port. |
 | `Device.Services.VoiceService.{i}.PhyInterface.{i}.InterfaceID` · `voiceServicePhyInterfaceInterfaceID` · *v1 only* | `unsignedInt` - JSON integer; minimum 1 | Read-Only (`getParameterSupportedList`) | The unique identifier of the physical port. |
@@ -1862,7 +1889,7 @@ schema constrains only their syntax.
 
 6 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 6 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.ClockSynchronization.AutoRevert` · `voiceServiceClockSynchronizationAutoRevert` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | If set to true the CPE automatically reverts back to a higher priority external clock source when it becomes available once again. |
 | `Device.Services.VoiceService.{i}.ClockSynchronization.ClockSource.{i}.Enable` · `voiceServiceClockSynchronizationClockSourceEnable` · *v2 only* | `boolean` - JSON boolean | Read-Write (`setParameterSupportedList`, `getParameterSupportedList`) | Enables or disables this entry. |
@@ -1875,7 +1902,7 @@ schema constrains only their syntax.
 
 17 definition keys in this group - 14 defined in `telcovoice_hal_schema_v1.json`, 17 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.X_RDK_BoundIfName` · `voiceServiceX_RDK_BoundIfName` · *v1 + v2* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Name of the network interface that the voice service should run on. |
 | `Device.Services.VoiceService.{i}.X_RDK_BoundIpAddr` · `voiceServiceX_RDK_BoundIpAddr` · *v1 + v2* | `string` - JSON string; maxLength 256 | Read-Only - **marker disagrees**, it says `Read-Write` (`getParameterOptionalList`) | IP address of the network interface that the voice service should run on. |
@@ -1899,7 +1926,7 @@ schema constrains only their syntax.
 
 2 definition keys in this group - 0 defined in `telcovoice_hal_schema_v1.json`, 2 in `telcovoice_hal_schema_v2.json`.
 
-| TR-181 Parameter | Type and Constraint | Access | Description |
+| TR-181 Parameter · definition key | Type and Constraint | Access | Description |
 |---|---|---|---|
 | `Device.Services.VoiceService.{i}.ReservedPorts.LANPortRange` · `voiceServiceReservedPortsLANPortRange` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Range of ports reserved for use by the CPE on any LAN interfaces. |
 | `Device.Services.VoiceService.{i}.ReservedPorts.WANPortRange` · `voiceServiceReservedPortsWANPortRange` · *v2 only* | `string` - JSON string; maxLength 256 | Read-Write (`setParameterOptionalList`, `getParameterOptionalList`) | Range of ports reserved for use by the CPE on any WAN interface. |
@@ -2566,8 +2593,8 @@ built on the same library.
 | 2 | There is no framing, and only the reply path accumulates | See `Message framing` |
 | 3 | Accepted client connections are unbounded and unchecked | After `accept`, an unchecked `malloc` result is dereferenced and `FD_SET(new_sd, &master_set)` is called without checking `new_sd < FD_SETSIZE`, so an allocation failure crashes the server and a high descriptor is written outside the `fd_set`. The listen backlog of 32 bounds only the pending queue |
 | 4 | Subscriptions are unbounded, and publication sends while holding the global lock | Repeated subscribes for one parameter add duplicate entries and deliveries. Publication holds `gm_subscription_mutex` across every recipient's `socket_send`, so one blocked recipient stalls every subscription operation and every other delivery |
-| 5 | A malformed event can release a `JSON` object that is then reused | On an event with no `id` field the client releases the object with `json_object_put`, continues the loop that uses it, and releases it again when the block ends (`CWE-416`, `CWE-415`); server helpers likewise release objects their callers release again. A malformed message, not only a hostile one, triggers it |
-| 6 | Configuration loading is size-exact | The configuration file is read with `fread(buffer, sizeof(buffer), 1, fp)` into 256 bytes and must return 1, so a shorter file fails to load and one of exactly 256 bytes is parsed without a terminator. The schema path is copied with `strcpy` into a 256-byte field and overflows it if longer |
+| 5 | A malformed event can release a `JSON` object that is then reused | In a client built with `JSON_BLOCKING_SUBSCRIBE_EVENT`, a subscribed event with no `reqId` field makes the receive loop release the object with `json_object_put`, continue the loop that uses it, and release it again when the block ends (`CWE-416`, `CWE-415`); server helpers likewise release objects their callers release again. A malformed message, not only a hostile one, triggers it |
+| 6 | Configuration loading ignores the read result | `json_hal_load_config`, which client and server initialisation both call, reads the file with one `fread` into a zero-initialised 256-byte buffer and ignores the result, so a shorter file parses normally, but one of 256 bytes or more fills the buffer with no terminator before it is parsed as a C string, and bytes past 256 are never read. The schema path is copied with `strcpy` into the 256-byte `hal_schema_path` field and overflows it if it is 256 bytes or longer |
 
 ## Error Handling
 
@@ -2592,12 +2619,13 @@ is the schema definition itself, not a protocol message:
 | `Success` | Only the vendor's action callback; the transport never emits it on the request path | Treat it as the server's answer, not as proof of effect: after a write, read the affected parameter back — `Device.Services.VoiceService.{i}.X_RDK_Status` for service enablement. One status covers the whole request |
 | `Failed` | The transport, when the vendor's action callback returns other than `RETURN_OK`; or the vendor | Log the action, parameter, status and `reqId`, and retry only as the action class below allows. A vendor may return `Failed` or `Invalid Argument` for the same rejected value, so neither proves whether the request was well-formed |
 | `Invalid Argument` | Only the vendor; the transport has no macro for it and never sends it | Correct the request before re-sending it |
-| `Not Supported` | The transport, for an action with no registered callback, an action with no bound handler, or — when built with `JSON_SCHEMA_VALIDATION_ENABLED` — a reply that fails the server's own validation; or the vendor, for a parameter it has not implemented | Treat the action or parameter as unavailable from this server and do not re-send it unchanged. For a `getParameterOptionalList` parameter this is a legitimate answer; its absence does not prove a parameter is implemented |
+| `Not Supported` | The transport, for an action with no registered callback, an action with no bound handler, or — when built with `JSON_SCHEMA_VALIDATION_ENABLED` — a reply that fails the server's own validation; or the vendor, for a parameter it has not implemented | Two causes share this token: the action or parameter is unsupported, or the reply failed the server's validation after the vendor's callback had already run. Do not infer unsupported status from the token alone. After a mutation or a subscription, which may have taken effect, reconcile as `Retry after an ambiguous failure` sets out before re-sending it or treating the capability as unavailable. For a `getParameterOptionalList` parameter this is a legitimate answer; its absence does not prove a parameter is implemented |
 
-**Retry after an ambiguous failure.** A timeout means only that no reply was correlated. The request
-may still have been delivered and applied — the ten-second floor can expire while the server works,
-and a reply can be lost after the server commits — so re-sending a mutation or a subscription may
-duplicate its effect:
+**Retry after an ambiguous failure.** A timeout means only that no reply was correlated before the
+tick budget ran out (`Correlation, blocking and timeouts`); the call returns an error with no
+`result`. The request may still have been delivered and applied — the budget can expire while the
+server works, and a reply can be lost after the server commits — so a timeout is not a rollback, and
+re-sending a mutation or a subscription may duplicate its effect:
 
 | Action class | Actions | Retry after an ambiguous failure |
 |---|---|---|
@@ -2617,8 +2645,7 @@ be compared as a string literal. The field is `JSON_RPC_PARAM_STATUS_FIELD` unde
 
 **Failures that `Status` does not report:**
 
-- **A timeout.** The send-and-reply call returns an error with no `result`. The request may have been
-  applied, so a timeout is not a rollback.
+- **A timeout.** No `result` arrives; handle it as `Retry after an ambiguous failure` sets out.
 - **A non-conforming request.** The transport validates no request at either end, so the reply is
   whatever the vendor sends: any of the four values, a non-conforming status string, or nothing.
 - **A refused subscription.** `json_hal_client_subscribe_event` discards the status
@@ -2692,20 +2719,11 @@ RdkTelcoVoiceManager meets none of the five:
 
 - The transport selects the callback when the received name is a prefix of the subscribed path, and
   `eventcb_FirewallRuleData` then accepts any name containing `X_RDK_Firewall_Rule_Data` (`strstr`).
-- `get_event_param` reads only the first `params` entry's `name` and `value`, validates neither the
-  envelope, the `type` nor the value, and truncates both strings at 255 bytes, although the schema
-  gives the value no length bound.
-- The value is split with `strtok_r` and checked only for protocol, enable flag, port ceiling and
-  address family before it reaches `iptables` or `ip6tables` commands run by `system()` (`D11`,
-  `D12`).
-- All of this runs on the receive thread while holding `mDataMutex`, which produces the deadlock
+- `get_event_param` reads only the first `params` entry's `name` and `value` and validates neither
+  the envelope, the `type` nor the value. The value then reaches shell command construction: `D12`
+  traces that path and the changes that close it, and `D11` the address check on it.
+- `eventcb_FirewallRuleData` takes `mDataMutex` on the receive thread, which produces the deadlock
   described above.
-
-Firewall state, and through it shell command construction, is therefore driven by an unvalidated,
-loosely matched external message. Closing this needs exact name matching, schema validation of the
-envelope and value, canonical parsing of the tuple and per-field allowlisting before any command
-string is built, all in the subscribing application. Until then, a test suite should treat firewall
-rule handling as an unvalidated input path.
 
 ## Source References
 
@@ -2726,6 +2744,7 @@ rule handling as an unvalidated input path.
 - [rdkcentral/telco-voice-manager/source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c](https://github.com/rdkcentral/telco-voice-manager/blob/main/source/TR-181/integration_src.shared/telcovoicemgr_services_apis.c) — address validation, firewall rule generation and `SKBMark` handling
 - [rdkcentral/telco-voice-manager/source/TelcoVoiceManager/telcovoicemgr_controller.c](https://github.com/rdkcentral/telco-voice-manager/blob/main/source/TelcoVoiceManager/telcovoicemgr_controller.c) — event subscription at start-up
 - [rdkcentral/json-hal-library/README.md](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/README.md) — transport overview and `json-c` dependency
+- [rdkcentral/json-hal-library/cov_docker_script/component_config.json](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/cov_docker_script/component_config.json) — upstream build dependencies, including the `json-c` revision
 - [rdkcentral/json-hal-library/json_hal_client.h](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_client.h) — client API
 - [rdkcentral/json-hal-library/json_hal_client.c](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_client.c) — correlation, timeouts, subscription and event dispatch
 - [rdkcentral/json-hal-library/json_hal_common.h](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_common.h) — `hal_param_t`
@@ -2734,5 +2753,6 @@ rule handling as an unvalidated input path.
 - [rdkcentral/json-hal-library/tcp_client.c](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_client.c) — client socket send and receive
 - [rdkcentral/json-hal-library/tcp_server.c](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_server.c) — server socket accept, send and receive
 - [rdkcentral/json-hal-library/json-rpc-common/json_rpc_common.h](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json-rpc-common/json_rpc_common.h) — buffer sizes and status macros
-- [rdkcentral/gpon-manager/hal_schema/gpon_hal_schema.json](https://github.com/rdkcentral/gpon-manager/blob/main/hal_schema/gpon_hal_schema.json) and [rdkcentral/gpon-manager/hal_schema/gpon_wan_unify_hal_schema.json](https://github.com/rdkcentral/gpon-manager/blob/main/hal_schema/gpon_wan_unify_hal_schema.json) — GPON `notificationType` members, for comparison
+- [rdkcentral/gpon-manager/hal_schema/gpon_hal_schema.json](https://github.com/rdkcentral/gpon-manager/blob/main/hal_schema/gpon_hal_schema.json) — GPON `notificationType` members, for comparison
+- [rdkcentral/gpon-manager/hal_schema/gpon_wan_unify_hal_schema.json](https://github.com/rdkcentral/gpon-manager/blob/main/hal_schema/gpon_wan_unify_hal_schema.json) — GPON `wan_unify` variant `notificationType` members, for comparison
 - [rdkcentral/xdsl-manager/hal_schema/xdsl_hal_schema.json](https://github.com/rdkcentral/xdsl-manager/blob/main/hal_schema/xdsl_hal_schema.json) — xDSL `notificationType` members, for comparison

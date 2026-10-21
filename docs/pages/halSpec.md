@@ -4,7 +4,7 @@
 
 | Date | Comment | Version |
 | --- | --- | --- |
-| 2026-08-24 | Initial release. Specifies the Telco Voice `JSON` HAL contract carried by `hal_schema/telcovoice_hal_schema_v1.json` and `hal_schema/telcovoice_hal_schema_v2.json`, recorded as an `Unreleased` entry in [CHANGELOG.md](https://github.com/rdkcentral/telco-voice-manager/blob/b37587112cedffed65a56d3296fdb6b0e337441d/CHANGELOG.md). | 1.0.0 |
+| 2026-08-24 | Initial release. Specifies the Telco Voice `JSON` HAL contract carried by `hal_schema/telcovoice_hal_schema_v1.json` and `hal_schema/telcovoice_hal_schema_v2.json`, recorded as an `Unreleased` entry in [CHANGELOG.md](https://github.com/rdkcentral/telco-voice-manager/blob/main/CHANGELOG.md). | 1.0.0 |
 
 ## Acronyms
 
@@ -94,8 +94,8 @@ repository.** The two schema files differ in scale and organisation:
 
 The client configuration, `config/telcovoice_manager_conf.json`, names a single schema path,
 `/etc/rdk/schemas/telcovoice_hal_schema.json`, which matches neither shipped filename; packaging or
-device provisioning installs one variant there. Both variants declare the module `voicehal` and the
-`schemaVersion` `0.0.1`, so no message field identifies the variant in use. A deployment must install
+device provisioning installs one variant there. Both variants declare the same `module` and
+`schemaVersion` constants, so no message field identifies the variant in use. A deployment must install
 the schema that matches the data model `RdkTelcoVoiceManager` was built for, which the manager
 reports at runtime as `Platform or Product Customization` describes. Only 23 parameter definition
 keys and 6 object definition keys are common to both files, and some of those differ in type or
@@ -160,9 +160,11 @@ thread, and they run while the library holds its non-recursive event-subscriptio
 - Hand further work, including any HAL read or write, to a thread the caller owns, and synchronize
   any state the callback shares with other threads.
 
-**Concurrent requests.** Replies are matched to requests by `reqId`, but this interface defines no
-thread-safety guarantee for simultaneous requests through one client instance, so a caller
-serializes them.
+**Concurrent requests.** `json_hal_client` does not synchronize request submission: it advances its
+shared request-identifier counter, appends to its shared pending-request list and writes to the
+socket without taking a lock. A caller therefore serializes each complete request exchange, from
+building the request header to receiving its reply, because `reqId` correlation alone does not make
+concurrent submission safe.
 
 **Vendor obligation.** The vendor server must serve a single long-lived client connection that
 carries sequential requests and unsolicited events, and every reply must carry the `reqId` of the
@@ -186,11 +188,10 @@ sides agree on it without discovery. The exchange is `JSON-RPC` style, with the 
 ### Memory Model
 
 No memory is shared across the HAL boundary; only serialized `JSON` documents cross it. On the
-client side, requests and replies are reference-counted `json_object` handles. A request is created
-with `json_hal_client_get_request_header()`, which fills in `module`, `version`, `action` and
-`reqId`. A reply is returned through the out-parameter of
-`json_hal_client_send_and_get_reply_with_timeout()` or `json_hal_client_send_and_get_reply()`. Both
-are released with `json_object_put()`.
+client side, requests and replies are reference-counted `json_object` handles: a request is built by
+`json_hal_client_get_request_header()`, which fills in the envelope, and a reply is returned through
+the out-parameter of `json_hal_client_send_and_get_reply_with_timeout()` or
+`json_hal_client_send_and_get_reply()`. Both are released with `json_object_put()`.
 
 #### Caller Responsibilities
 
@@ -268,16 +269,17 @@ blocks waiting for them.
 
 **Errors are reported in the reply.** There is no error callback or error event. A failed
 send-and-reply call is a transport failure, and the request may never have been processed; a
-`Result.Status` other than `Success` means the server processed the request and refused it.
-`Result.Status` is read with `json_hal_get_result_status()` and takes one of the four
-`resultStatusEnumList` values:
+`Result.Status` in the reply means the server received the request and answered it with one of the
+four `resultStatusEnumList` values. `json_hal_get_result_status()` only classifies that value, true
+for `Success` and false for the other three, so a caller that acts per status reads the `Status`
+string from the reply's `Result` object and compares it for equality with each value:
 
 | Status | Meaning | What the caller should do |
 | --- | --- | --- |
-| `Success` | The request was accepted and applied. | Proceed. For a write, read dependent state to confirm it, because acceptance does not mean the state has converged. |
+| `Success` | The server reported success. The status is the vendor's answer, not proof that a write took effect. | Proceed. For a write whose effect matters, read the affected parameter back: `Device.Services.VoiceService.{i}.X_RDK_Status` for service enablement. |
 | `Failed` | The request was understood but could not be applied. | Do not retry unchanged. Log the parameter and the status, and report the failure upward. |
 | `Invalid Argument` | A parameter name, type or value was not acceptable. | Do not retry. Correct the request against the parameter's name, datatype and constraint in the schema. |
-| `Not Supported` | The vendor does not implement this parameter or action. | Do not retry; stop requesting it. For a parameter reachable only through an optional list, this is a normal outcome. |
+| `Not Supported` | The vendor or the transport has no implementation or handler for the parameter or action, or a server built with `JSON_SCHEMA_VALIDATION_ENABLED` found its own reply invalid after the action ran. The status alone proves neither an unimplemented capability nor an unapplied write. | For a write, read the affected state back before retrying or ceasing to use the parameter; do not re-send the request unchanged. For a parameter reachable only through an optional list, this is a normal outcome. |
 
 **Subscription status is not returned.** `json_hal_client_subscribe_event()` returns success
 whenever a reply arrives, without reading its status, so a refused subscription is
@@ -290,9 +292,9 @@ must not report `Success` for a write it did not apply.
 
 ### Persistence Model
 
-`Success` on `setParameters` means the value was applied. No action or result status requests or
-reports persistence, so a caller does not infer that a written value survives a reboot, a vendor
-restart or a reconnection.
+`Success` on `setParameters` reports the server's answer, not a verified or persisted effect. No
+action or result status requests or reports persistence, so a caller does not infer that a
+written value survives a reboot, a vendor restart or a reconnection.
 
 **Manager-side persistence.** `RdkTelcoVoiceManager` persists values in its own local store, above
 the HAL boundary. For the voice enable control, the behaviour depends on the build macro
@@ -310,22 +312,16 @@ socket, and a vendor server accepts re-application of a value it has already rec
 
 ### Logging and debugging requirements
 
-**Debug controls.** Both schemas define an `X_RDK_Debug` object under each voice service instance,
-`Device.Services.VoiceService.{i}.X_RDK_Debug.`, with five read-write parameters that control
-diagnostic output from the vendor voice software:
+**Debug controls.** In both schemas, `Device.Services.VoiceService.{i}.X_RDK_Debug.` holds five
+read-write parameters that control the vendor voice software's diagnostics: `ModuleLogLevels` sets
+per-module log levels, `LogServer` and `LogServerPort` name a remote destination for protocol-message
+logs, and `CCTKTraceGroup` and `CCTKTraceLevel` select the vendor stack's trace group bitmask and
+trace level. [halSpecDetailed.md](halSpecDetailed.md) gives their types and constraints.
 
-| Parameter | Type | Purpose |
-| --- | --- | --- |
-| `X_RDK_Debug.ModuleLogLevels` | `string` | Per-module log levels, as a comma-separated list of `name=value` pairs. |
-| `X_RDK_Debug.LogServer` | `string` | Destination for remote logging of protocol messages. |
-| `X_RDK_Debug.LogServerPort` | `unsignedInt` | Port on that log server. |
-| `X_RDK_Debug.CCTKTraceGroup` | `string` | Trace group bitmask for the vendor voice stack, up to 256 characters. |
-| `X_RDK_Debug.CCTKTraceLevel` | `string` | Trace level for the same facility, up to 256 characters. |
-
-**Log levels are the `printk` scale.** Levels run from `0`, an emergency log, to `7`, a debug log, so
-verbosity rises with the number, and a keyword such as `ERROR` is not a valid level. Module names
-are vendor-defined, so a caller can raise verbosity for one voice module while leaving the rest
-quiet.
+**Log levels are the `printk` scale.** `ModuleLogLevels` is a comma-separated list of `name=value`
+pairs, each naming a vendor-defined voice module and a level from `0`, an emergency log, to `7`, a
+debug log; a keyword such as `ERROR` is not a valid level. A caller can therefore raise verbosity for
+one module while leaving the rest quiet.
 
 **Manager-side logging.** `RdkTelcoVoiceManager` logs through the `RDK-B` trace facility, tracing
 `JSON` requests and replies at informational level and failures at error level. Those traces carry
@@ -333,17 +329,17 @@ whole messages, and the manager's credential filter covers only some requests, s
 tracing must be sanitized or disabled before a build reaches a subscriber device.
 
 **Sensitive data.** Implementations must not log credentials, secrets, security-sensitive information, or other sensitive data.
-The rule binds the vendor implementation and every caller, and it applies:
+Subscriber personal data, such as telephone numbers and call records, is sensitive data under this
+rule. The rule binds the vendor implementation and every caller, and it applies:
 
 - at every log level, including debug builds;
 - to every output: vendor logs, the remote log server set through `LogServer` and `LogServerPort`,
-  `syslog`, standard output and error, trace buffers, crash dumps and telemetry;
-- to subscriber personal data, such as telephone numbers and call records, which is logged only
-  where a specific diagnostic requires it and never in whole-message form.
+  `syslog`, standard output and error, trace buffers, crash dumps and telemetry.
 
-A diagnostic about a sensitive value names the parameter path and replaces the value with a fixed
-redaction marker. A rejected value is never logged. Buffers that held a credential, including
-serialized `JSON` messages, are cleared after use on every path.
+A diagnostic involving a sensitive value records only the parameter path, the outcome and a fixed
+redaction marker in place of the value, never the value itself. A rejected value is never logged.
+Buffers that held sensitive data, including serialized `JSON` messages, are cleared after use on
+every path.
 
 **Vendor obligation.** A vendor implementation honours the level written to `ModuleLogLevels`, does
 not exceed it in normal operation, and includes a timestamp, the level and a message in each entry.
@@ -376,7 +372,8 @@ Reply-wait bounds are in `Blocking calls`.
 
 ### Quality Control
 
-**Review route.** Changes reach this repository through GitHub pull requests, as `CONTRIBUTING.md`
+**Review route.** Changes reach this repository through GitHub pull requests, as
+[`CONTRIBUTING.md`](https://github.com/rdkcentral/telco-voice-manager/blob/main/CONTRIBUTING.md)
 directs, from contributors who have signed the RDK Contributor License Agreement. The `CLA` workflow,
 `.github/workflows/cla.yml`, which delegates to `rdkcentral/cmf-actions/.github/workflows/cla.yml@v1`,
 is the repository's automated check, and the pull-request reviewer is responsible for keeping this
@@ -493,22 +490,22 @@ compiled for. It reports the manager's build, not the schema file installed on t
 ### Theory of operation and key concepts
 
 **One envelope, one action field, one conditional payload.** Every message in either direction is a
-single `JSON` object with four required fields: `module`, `version`, `action` and `reqId`. The
-`action` value decides which payload, if any, the message must also carry. There is no other framing
-and no other message type.
+single `JSON` object with four required fields, `module`, `version`, `action` and `reqId`, and the
+`action` value decides which payload, if any, it also carries. There is no other framing or message
+type.
 
 **Correlation is by `reqId` only.** `reqId` is a **string** of digits matching `^[0-9]+$`, so `"42"`
-is valid and `42` is not. A server echoes the request's `reqId` in the reply that answers it, and the
-client matches replies on that field rather than on arrival order.
+is valid and `42` is not. A reply carries the `reqId` of the request it answers, and the client
+matches on that field rather than on arrival order.
 
-**Module identity is a constant.** `module` is the `const` `voicehal` in both schemas. It identifies
-the contract rather than routing between modules, and a message bearing any other value is invalid.
-`version` is likewise a `const`, as `Variability Management` sets out.
+**Module and version are constants.** `module` is the `const` `voicehal` in both schemas; it
+identifies the contract rather than routing between modules, and a message bearing any other value
+is invalid. `version` is fixed as `Variability Management` sets out.
 
 **Parameters are `TR-181` paths carried as data.** Reads and writes name data model paths, such as
 `Device.Services.VoiceService.1.X_RDK_Status`, inside a `params` array, and the schema validates each
-entry against a definition that fixes the path, datatype and value domain. Those definitions take the
-place of a C HAL's function signatures, and [halSpecDetailed.md](halSpecDetailed.md) documents each.
+entry against that path's parameter definition. Those definitions take the place of a C HAL's
+function signatures, and [halSpecDetailed.md](halSpecDetailed.md) documents each.
 
 #### Object Lifecycles
 
@@ -549,61 +546,32 @@ place of a C HAL's function signatures, and [halSpecDetailed.md](halSpecDetailed
 
 ### Data Structures and Defines
 
-The equivalents of a C HAL's types are schema definitions. [halSpecDetailed.md](halSpecDetailed.md)
-inventories every definition; these are the shapes a caller builds and reads.
+The equivalents of a C HAL's types are schema definitions. A caller builds and reads the ones below,
+each specified in the topic named; [halSpecDetailed.md](halSpecDetailed.md) gives their exact
+constraints under `Transport and Protocol`, `Object Index`, `Parameter Reference` and
+`Enumeration Appendix`.
 
-**The envelope.**
-
-| Field | Bound to | Form |
+| Definition | What it is | Specified in |
 | --- | --- | --- |
-| `module` | `moduleName` | `string`, `const` `voicehal` |
-| `version` | `schemaVersion` | `string`, `const` `0.0.1` |
-| `action` | `action` | `string`, one of the eleven members in `API Surface` |
-| `reqId` | inline | `string` matching `^[0-9]+$` |
+| Envelope | The required root of every message | `Theory of operation and key concepts` |
+| `params` | A non-empty array of distinct parameter entries. Each entry has a `name`, plus a `type` and a `value` in `setParameters` and `getParametersResponse` | This topic; `Asynchronous Notification Model` for event entries |
+| `Result` | The `result` payload | `Internal Error Handling` |
+| `SchemaInfo` | The `getSchemaResponse` payload, whose one field is `FilePath` | This topic |
+| Parameter definition | Constrains an entry's `name` (a `const` path or an instance regular expression), `type` (the `TR-181` datatype, of which `hexBinary` is `v2`-only) and `value` | `Parameter Reference` in [halSpecDetailed.md](halSpecDetailed.md) |
+| Object definition | An instance path | `Object Lifecycles` |
+| `action` | The eleven actions | `API Surface` |
+| `resultStatusEnumList` | The values of `Result.Status` | `Internal Error Handling` |
+| `notificationType` | The subscription types | `Asynchronous Notification Model` |
+| `voiceStatusEnumList`, `voiceStateEnumList` | The values of `X_RDK_Status` and `X_RDK_Enable` | `State Diagram` |
 
-**The payloads.**
+A caller treats every enumeration as closed.
 
-| Payload | Carried by | Shape |
-| --- | --- | --- |
-| `params` | `setParameters`, `getParameters`, `getParametersResponse`, `subscribeEvent`, `publishEvent`, `deleteObject` | An array of at least one unique parameter entry, whose required fields depend on the action. |
-| `Result` | `result` | An object with one required field, `Status`, and `additionalProperties: false`. |
-| `SchemaInfo` | `getSchemaResponse` | An object with one required field, `FilePath`, matching `^(.+)/([^/]+)$`, and `additionalProperties: false`. |
-
-**The schema path in `SchemaInfo.FilePath` is server-supplied: compare it, never dereference it.**
-Its pattern admits `..` segments, absolute paths, links and device nodes, so a valid
-`getSchemaResponse` says nothing about the path's safety. A caller compares it for exact equality
-with the configured `hal_schema_path`, `/etc/rdk/schemas/telcovoice_hal_schema.json`, and never
-opens, resolves or derives a path from it. On a mismatch the caller fails closed and reports its
-configured path rather than the received text. The transport library itself opens only the
-configured path.
-
-**Required fields in each `params` entry.**
-
-| Action | Required in each `params` entry |
-| --- | --- |
-| `getParameters` | `name` |
-| `setParameters`, `getParametersResponse`, `publishEvent` | `name`, `type` and `value` |
-| `subscribeEvent` | `name` and `notificationType` |
-| `deleteObject` | `name`, though the action is unusable (`API Surface`) |
-
-**Parameter and object definitions.** A parameter definition, the analogue of a documented function
-parameter, carries exactly three properties and forbids others: `name`, a `const` path for a
-singleton or a regular expression for an indexed instance; `type`, a `const` giving the `TR-181`
-datatype; and `value`, the constraint the value must satisfy. An object definition carries `name`
-alone. The datatypes are `string`, `boolean`, `unsignedInt`, `int`, `unsignedLong` and, in `v2`
-only, `hexBinary`: an even-length string of hexadecimal digit pairs, used by the five `DECT` identity
-and provisioning parameters, the base station `PIN` and `RFPI` and the portable part's `IPEI`, `IPUI`
-and `PARK`.
-
-**The five enumerations.** A caller treats each as closed:
-
-| Enumeration | Members | Default |
-| --- | --- | --- |
-| `action` | The eleven members in `API Surface` | none |
-| `resultStatusEnumList` | `Success`, `Failed`, `Invalid Argument`, `Not Supported` | `Success` |
-| `notificationType` | `interval`, `onChange`, `onChangeSync`, `onChangeSyncTimeout` | `onChange` |
-| `voiceStatusEnumList` | `Stopped`, `Starting`, `Started`, `Stopping`, `Error` | none |
-| `voiceStateEnumList` | `Enable`, `Disable` | none |
+**The schema path in `SchemaInfo.FilePath` is server-supplied: compare it, never dereference it.** Its pattern admits
+`..` segments, absolute paths, links and device nodes, so a valid reply says nothing about the path's
+safety. A caller compares it for exact equality with the configured `hal_schema_path`,
+`/etc/rdk/schemas/telcovoice_hal_schema.json`, never opens, resolves or derives a path from it, and
+on a mismatch fails closed, reporting its configured path rather than the received text. The
+transport library opens only the configured path.
 
 ### API Surface
 
@@ -628,11 +596,9 @@ schemas:
 | `deleteObject` | Client | `params`, but unusable |
 | `result` | Server | `Result` |
 
-**Eight actions bind a payload; three are the bare envelope.** `getSchema`, `getActiveSubscriptions`
-and `getActiveSubscriptionsResponse` carry only the four envelope fields. `getSchema` is answered by
-`getSchemaResponse`, which carries `SchemaInfo`. `getActiveSubscriptionsResponse` has no defined
-content, so whatever a server places there is vendor-specific, and the client library offers no call
-that issues `getActiveSubscriptions`.
+**Eight actions bind a payload; three are the bare envelope.** `getActiveSubscriptionsResponse` has
+no defined content, so whatever a server places there is vendor-specific, and the client library
+offers no call that issues `getActiveSubscriptions`.
 
 **There is no `setParametersResponse`.** `setParameters` and `subscribeEvent` are acknowledged by the
 generic `result` action carrying `Result.Status`, while `getParameters` and `getSchema` have dedicated
@@ -752,6 +718,7 @@ stateDiagram-v2
 - [rdkcentral/json-hal-library/json_hal_client.c](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_client.c) — client thread, event dispatch, locking, request timeouts and subscription
 - [rdkcentral/json-hal-library/json_hal_common.h](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_common.h) — message helpers
 - [rdkcentral/json-hal-library/json_hal_common.c](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_common.c) — configuration and schema loading
+- [rdkcentral/json-hal-library/json_hal_server.c](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/json_hal_server.c) — server request dispatch, reply validation and result-status substitution
 - [rdkcentral/json-hal-library/tcp_client.c](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_client.c) — client receive loop and reply reassembly
 - [rdkcentral/json-hal-library/tcp_client.h](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_client.h) — loopback server address and loop timeout
 - [rdkcentral/json-hal-library/tcp_server.c](https://github.com/rdkcentral/json-hal-library/blob/86a0a300b976f8e3295064af8fb3fd1c793c9e64/tcp_server.c) — server receive buffer and listen backlog
