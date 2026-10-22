@@ -40,9 +40,6 @@ flowchart TD
     Socket <--> Srv["Vendor JSON HAL Server"]
 ```
 
-Diagrams in this document are fenced `mermaid` blocks. They render on GitHub; the generated
-documentation site shows their source text.
-
 The Telco Voice HAL is the interface between `RdkTelcoVoiceManager` and the vendor's voice
 software. It is a `JSON` Schema contract rather than a C header: the two participants are separate
 processes that exchange `JSON` messages over a `TCP` socket, and no library is linked across the HAL
@@ -627,14 +624,14 @@ sequenceDiagram
     Mgr->>Cli: json_hal_client_get_request_header("setParameters")
     Mgr->>Cli: json_hal_client_send_and_get_reply_with_timeout(request, 60, &reply)
     Cli->>Srv: module/version/action/reqId + params (VoiceHalInit)
-    Srv->>Cli: result with matching reqId
-    Cli->>Mgr: reply
+    Srv-->>Cli: result with matching reqId
+    Cli-->>Mgr: reply
     Mgr->>Cli: json_hal_get_result_status(reply, &status)
     Mgr->>Cli: json_hal_client_get_request_header("getParameters")
     Mgr->>Cli: json_hal_client_send_and_get_reply_with_timeout(request, 60, &reply)
     Cli->>Srv: module/version/action/reqId + params (X_RDK_Status)
-    Srv->>Cli: getParametersResponse with matching reqId
-    Cli->>Mgr: reply
+    Srv-->>Cli: getParametersResponse with matching reqId
+    Cli-->>Mgr: reply
     Mgr->>Cli: json_hal_get_param(reply, 0, ...)
 ```
 
@@ -653,21 +650,25 @@ to its own enumeration, which no other parameter uses and which is identical in 
 | `Device.Services.VoiceService.{i}.X_RDK_Status` | Read-only | `Stopped` 0, `Starting` 1, `Started` 2, `Stopping` 3, `Error` 4 (`voiceStatusEnumList`) |
 | `Device.Services.VoiceService.{i}.X_RDK_Enable` | Read-write | `Disable` 0, `Enable` 1 (`voiceStateEnumList`) |
 
-The interface closes both value sets but defines no transitions between their values, so the diagram
-declares the states without edges or an initial state.
+The interface closes both value sets but defines no transitions between their values, so the diagrams
+declare the states without edges or an initial state.
 
 ```mermaid
 stateDiagram-v2
     state "X_RDK_Status - read-only observable" as observable {
-        state "Stopped - ordinal 0" as v0
-        state "Starting - ordinal 1" as v1
-        state "Started - ordinal 2" as v2
-        state "Stopping - ordinal 3" as v3
-        state "Error - ordinal 4" as v4
+        state "Stopped = 0" as v0
+        state "Starting = 1" as v1
+        state "Started = 2" as v2
+        state "Stopping = 3" as v3
+        state "Error = 4" as v4
     }
+```
+
+```mermaid
+stateDiagram-v2
     state "X_RDK_Enable - read-write control" as control {
-        state "Disable - ordinal 0" as c0
-        state "Enable - ordinal 1" as c1
+        state "Disable = 0" as c0
+        state "Enable = 1" as c1
     }
 ```
 

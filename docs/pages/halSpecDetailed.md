@@ -2019,8 +2019,7 @@ This repository ships no example fixtures. Each message below was written from t
 against both `telcovoice_hal_schema_v1.json` and `telcovoice_hal_schema_v2.json`, and uses the module,
 schema path and port in `config/telcovoice_manager_conf.json`. The parameters chosen are ones the two
 variants agree on. `reqId` is shown in the zero-padded form `json_hal_client_get_request_header`
-produces: `"%8.8d"`, at least eight digits. Both sequence diagrams render on GitHub; the generated
-Doxygen site shows their source text.
+produces: `"%8.8d"`, at least eight digits.
 
 ```mermaid
 sequenceDiagram
@@ -2035,8 +2034,8 @@ sequenceDiagram
     Mgr->>Cli: json_hal_client_get_request_header("getParameters")
     Mgr->>Cli: json_hal_client_send_and_get_reply_with_timeout(request, 60, &reply)
     Cli->>Srv: envelope module/version/action/reqId + params
-    Srv->>Cli: getParametersResponse, same reqId
-    Cli->>Mgr: reply object
+    Srv-->>Cli: getParametersResponse, same reqId
+    Cli-->>Mgr: reply object
     Mgr->>Cli: json_hal_get_param(reply, 0, GET_RESPONSE_MESSAGE, &param)
 ```
 
@@ -2232,12 +2231,12 @@ sequenceDiagram
     participant Srv as Vendor JSON HAL Server
     Mgr->>Cli: json_hal_client_subscribe_event(cb, path, "onChangeSyncTimeout")
     Cli->>Srv: subscribeEvent, reqId 00000004
-    Srv->>Cli: result, Status Success, reqId 00000004
+    Srv-->>Cli: result, Status Success, reqId 00000004
     Note over Cli,Mgr: the helper does not read Result.Status
     Srv->>Cli: publishEvent, firewall rule data
     Cli->>Mgr: event callback, whole message as text
     Note over Mgr: the application must validate before use
-    Cli->>Srv: event reply, only when built with JSON_BLOCKING_SUBSCRIBE_EVENT
+    Cli-->>Srv: event reply, only when built with JSON_BLOCKING_SUBSCRIBE_EVENT
 ```
 
 ### Enumerate subscriptions
