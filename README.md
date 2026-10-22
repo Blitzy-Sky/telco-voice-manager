@@ -32,22 +32,10 @@ That output directory is git-ignored, so the Markdown sources above are the file
 ## Architecture
 
 ```mermaid
-graph LR
-    subgraph rdkb["RDK-B middleware"]
-        Stack["TR-181 data-model clients (RDK-B stack and CCSP components)"]
-        Mgr["RdkTelcoVoiceManager"]
-        Cli["json_hal_client"]
-    end
-    Socket["JSON HAL socket (TCP port 20104)"]
-    subgraph vendor["Vendor software"]
-        Server["Vendor JSON HAL Server"]
-        Media["Vendor voice stack: SIP signalling, call processing and media"]
-    end
-    Stack <--> Mgr
-    Mgr <--> Cli
-    Cli <--> Socket
-    Socket <--> Server
-    Server --- Media
+flowchart TD
+    Mgr["RdkTelcoVoiceManager"] <--> Cli["json_hal_client"]
+    Cli <--> Socket["JSON HAL socket (TCP port 20104)"]
+    Socket <--> Srv["Vendor JSON HAL Server"]
 ```
 
 `RdkTelcoVoiceManager` is the **client** of the interface, through the `json_hal_client` library, and
@@ -62,20 +50,83 @@ Two message buses are in play. The component serves its `TR-181` parameter tree 
 `TELCOVOICEMANAGER` [`source/TR-181/middle_layer_src/telcovoicemgr_rbus_handler_apis.c`], used
 only for its own outbound subscriptions to WAN Manager.
 
+### Runtime behaviour
+
+**HAL Bring-Up:** `TelcoVoiceMgrHal_Init` establishes the order, and every step returns
+`ANSC_STATUS_FAILURE` on error, so the component fails initialization rather than proceeding without
+a reachable HAL server [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c`]:
+
+```mermaid
+sequenceDiagram
+    participant Mgr as RdkTelcoVoiceManager
+    participant Cli as json_hal_client
+    participant Srv as Vendor JSON HAL Server
+    Mgr->>Cli: json_hal_client_init(/etc/rdk/conf/telcovoice_manager_conf.json)
+    Mgr->>Cli: json_hal_client_run()
+    Cli->>Srv: TCP connect to server_port 20104
+    loop up to 10 attempts, 1 second apart
+        Mgr->>Cli: json_hal_is_client_connected()
+    end
+    Mgr->>Cli: setParameters Devices.Services.VoiceHalInit = true
+    Cli->>Srv: request envelope with reqId
+    Srv-->>Cli: result action with matching reqId
+    Cli-->>Mgr: reply, status read by json_hal_get_result_status
+    Mgr->>Cli: subscribeEvent X_RDK_Firewall_Rule_Data, one per voice service
+```
+
+The connectivity poll uses a **fixed** one-second interval for at most ten attempts
+(`HAL_CONNECTION_RETRY_MAX_COUNT` is `10`
+[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h`]), not exponential backoff, and applies to
+bring-up only. Once connectivity is confirmed, `TelcoVoiceMgrHal_InitData` writes the HAL
+initialization flag. A connection lost after initialization is not re-established by the component,
+so recovery comes from process supervision.
+
+**Threads:** The component creates **three** threads of its own:
+
+| Thread | Purpose |
+| --- | --- |
+| `voice_manager_nw_monitor` [`source/TelcoVoiceManager/telcovoicemgr_nw_monitor.c`] | Listens for `sysevent` notifications on a descriptor kept separate from the get/set descriptor. |
+| `StartVoiceReporting` [`source/TR-181/integration_src.shared/voice_report.c`] | Created only when voice telemetry reporting becomes enabled; encodes Avro diagnostics. |
+| `handle_parodus` [`source/TR-181/integration_src.shared/voice_report_webpa_intf.c`] | The parodus/WebPA message loop. |
+
+A fourth thread exists but is not this component's: `json_hal_client_run` starts the HAL client's
+receive loop inside `json-hal-library` [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c`].
+The data-model tree is guarded by a **recursive** mutex so nested accessors can re-enter it
+[`source/TR-181/middle_layer_src/telcovoicemgr_dml_data.c`].
+
+**Events Consumed:** Three independent inbound paths, so a caller must not assume ordering across
+them:
+
+- Seven `sysevent` tuples registered by the network monitor
+  [`source/TelcoVoiceManager/telcovoicemgr_nw_monitor.c`] — `lan-status`,
+  `ipv4_connection_state`, `ipv6_connection_state`, `ipv4-timeoffset`, `firewall-status`,
+  `telcovoicemgr_bound_ifname` and `telcovoicemgr_ipaddr_family`
+  [`source/TR-181/include/telcovoicemgr_services_apis_v2.h`].
+- Two WAN Manager data elements over RBus —
+  `Device.X_RDK_WanManager.InterfaceAvailableStatus` and `.InterfaceActiveStatus`
+  [`source/TR-181/middle_layer_src/telcovoicemgr_rbus_handler_apis.h`, subscribed in
+  `source/TR-181/middle_layer_src/telcovoicemgr_rbus_handler_apis.c`].
+- One HAL event per voice service instance, dispatched to `eventcb_FirewallRuleData`
+  [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c`], subscribed from
+  `TelcoVoiceMgr_Controller_Init` [`source/TelcoVoiceManager/telcovoicemgr_controller.c`].
+
+Telemetry leaves as Avro records over parodus/WebPA. Errors are propagated as `ANSC_STATUS_FAILURE`
+return values and logged through the `CcspTrace*` macros.
+
 ## JSON HAL contract
 
-**Module identity.** Messages carry the module name `voicehal` and the schema version `0.0.1`, both
+**Module Identity:** Messages carry the module name `voicehal` and the schema version `0.0.1`, both
 fixed as constants in the schema [`definitions.moduleName.const` and
-`definitions.schemaVersion.const`, identical in both shipped schemas]. The schema's own description of
-that version states that it must not be modified, so the client and the vendor server must agree on
-it. It is not tied to the repository release tag, most recently `v2.0.5` in
+`definitions.schemaVersion.const`, identical in both shipped schemas]. The schema's own description
+of that version states that it must not be modified, so the client and the vendor server must agree
+on it. It is not tied to the repository release tag, most recently `v2.0.5` in
 [`CHANGELOG.md`](CHANGELOG.md).
 
-**Object tree.** Every parameter sits under `Device.Services.VoiceService.`, with one exception:
+**Object Tree:** Every parameter sits under `Device.Services.VoiceService.`, with one exception:
 `servicesVoiceHalInit`, the HAL initialization flag.
 [`docs/pages/halSpecDetailed.md`](docs/pages/halSpecDetailed.md) documents each parameter.
 
-**Actions.** The `action` enumeration carries eleven members, of which eight bind a payload;
+**Actions:** The `action` enumeration carries eleven members, of which eight bind a payload;
 [`docs/pages/halSpec.md`](docs/pages/halSpec.md) names them all. This component issues only a narrow
 part of the vocabulary; the constants and call sites below are in
 `source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h` and
@@ -89,17 +140,19 @@ part of the vocabulary; the constants and call sites below are in
 | `getSchema`, `getActiveSubscriptions` and their responses | No | The schema path is read from configuration. |
 | `deleteObject` | No, and not usable | See [Known contract defects](#known-contract-defects). |
 
-**Request paths.** Requests are synchronous on the calling thread. The component sends them with
+**Request Paths:** Requests are synchronous on the calling thread. The component sends them with
 `json_hal_client_send_and_get_reply_with_timeout` and `HAL_SEND_AND_REPLY_TIMEOUT`, a nominal
 60-second budget that the library counts in receive-loop ticks, not a maximum elapsed wait, so a
 caller that needs a hard deadline enforces its own; see
 [Blocking calls](docs/pages/halSpec.md#blocking-calls).
 
-**Transport.** The interface is carried by the `json-hal-library` client and server, which are the
+**Transport:** The interface is carried by the `json-hal-library` client and server, which are the
 authority for the message envelope and the client semantics:
 [rdkcentral/json-hal-library@`86a0a300`](https://github.com/rdkcentral/json-hal-library/tree/86a0a300b976f8e3295064af8fb3fd1c793c9e64).
 
-**Shipped schema variants.** Two schemas are shipped, corresponding to the two `TR-104` data models.
+## Variant selection
+
+**Shipped Schema Variants:** Two schemas are shipped, corresponding to the two `TR-104` data models.
 Each is consumed by `RdkTelcoVoiceManager` alone, which loads the one installed at its configured
 schema path (see [Known contract defects](#known-contract-defects)); the Vendor JSON HAL Server
 implements it.
@@ -111,10 +164,9 @@ implements it.
 
 The two are not related by addition: only **23** definition keys are present in both, and some of
 those differ in type, constraint or list membership, so a caller must not assume a shared key means
-a shared contract. [`docs/pages/halSpecDetailed.md`](docs/pages/halSpecDetailed.md#variant-differences)
-carries the per-variant comparison.
-
-## Build-time variant selection
+a shared contract.
+[`docs/pages/halSpecDetailed.md`](docs/pages/halSpecDetailed.md#variant-differences) carries the
+per-variant comparison.
 
 Two preprocessor macros vary this component:
 
@@ -142,69 +194,6 @@ PSM instead [`source/TR-181/middle_layer_src/telcovoicemgr_dml_report.c`]. The s
 names region-specific default files for `ITA`, `UK` and `ROI`, which the build or packaging layer
 supplies.
 
-## Runtime behaviour
-
-**HAL bring-up.** `TelcoVoiceMgrHal_Init` establishes the order, and every step returns
-`ANSC_STATUS_FAILURE` on error, so the component fails initialization rather than proceeding without a
-reachable HAL server [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c`]:
-
-```mermaid
-sequenceDiagram
-    participant Mgr as RdkTelcoVoiceManager
-    participant Cli as json_hal_client
-    participant Srv as Vendor JSON HAL Server
-    Mgr->>Cli: json_hal_client_init(/etc/rdk/conf/telcovoice_manager_conf.json)
-    Mgr->>Cli: json_hal_client_run()
-    Cli->>Srv: TCP connect to server_port 20104
-    loop up to 10 attempts, 1 second apart
-        Mgr->>Cli: json_hal_is_client_connected()
-    end
-    Mgr->>Cli: setParameters Devices.Services.VoiceHalInit = true
-    Cli->>Srv: request envelope with reqId
-    Srv-->>Cli: result action with matching reqId
-    Cli-->>Mgr: reply, status read by json_hal_get_result_status
-    Mgr->>Cli: subscribeEvent X_RDK_Firewall_Rule_Data, one per voice service
-```
-
-The connectivity poll uses a **fixed** one-second interval for at most ten attempts
-(`HAL_CONNECTION_RETRY_MAX_COUNT` is `10`
-[`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.h`]), not exponential backoff, and applies to
-bring-up only. Once connectivity is confirmed, `TelcoVoiceMgrHal_InitData` writes the HAL
-initialization flag. A connection lost after initialization is not re-established by the component,
-so recovery comes from process supervision.
-
-**Threads.** The component creates **three** threads of its own:
-
-| Thread | Purpose |
-| --- | --- |
-| `voice_manager_nw_monitor` [`source/TelcoVoiceManager/telcovoicemgr_nw_monitor.c`] | Listens for `sysevent` notifications on a descriptor kept separate from the get/set descriptor. |
-| `StartVoiceReporting` [`source/TR-181/integration_src.shared/voice_report.c`] | Created only when voice telemetry reporting becomes enabled; encodes Avro diagnostics. |
-| `handle_parodus` [`source/TR-181/integration_src.shared/voice_report_webpa_intf.c`] | The parodus/WebPA message loop. |
-
-A fourth thread exists but is not this component's: `json_hal_client_run` starts the HAL client's
-receive loop inside `json-hal-library` [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c`].
-The data-model tree is guarded by a **recursive** mutex so nested accessors can re-enter it
-[`source/TR-181/middle_layer_src/telcovoicemgr_dml_data.c`].
-
-**Events consumed.** Three independent inbound paths, so a caller must not assume ordering across
-them:
-
-- Seven `sysevent` tuples registered by the network monitor
-  [`source/TelcoVoiceManager/telcovoicemgr_nw_monitor.c`] — `lan-status`,
-  `ipv4_connection_state`, `ipv6_connection_state`, `ipv4-timeoffset`, `firewall-status`,
-  `telcovoicemgr_bound_ifname` and `telcovoicemgr_ipaddr_family`
-  [`source/TR-181/include/telcovoicemgr_services_apis_v2.h`].
-- Two WAN Manager data elements over RBus —
-  `Device.X_RDK_WanManager.InterfaceAvailableStatus` and `.InterfaceActiveStatus`
-  [`source/TR-181/middle_layer_src/telcovoicemgr_rbus_handler_apis.h`, subscribed in
-  `source/TR-181/middle_layer_src/telcovoicemgr_rbus_handler_apis.c`].
-- One HAL event per voice service instance, dispatched to `eventcb_FirewallRuleData`
-  [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c`], subscribed from
-  `TelcoVoiceMgr_Controller_Init` [`source/TelcoVoiceManager/telcovoicemgr_controller.c`].
-
-Telemetry leaves as Avro records over parodus/WebPA. Errors are propagated as `ANSC_STATUS_FAILURE`
-return values and logged through the `CcspTrace*` macros.
-
 ## Repository layout
 
 | Path | Contents |
@@ -223,18 +212,17 @@ The component builds with Autotools and produces the `telcovoice_manager` binary
 generates the makefiles for `source/` and its subdirectories; its `AC_INIT` string is the Autotools
 package identifier rather than a release version.
 
-**Build options.** One is exposed: `--enable-notify` adds `-DENABLE_SD_NOTIFY` and links `-lsystemd`
+**Build Options:** One is exposed: `--enable-notify` adds `-DENABLE_SD_NOTIFY` and links `-lsystemd`
 [`configure.ac`], which enables the `sd_notifyf` readiness notification the component emits once
 its own initialization completes [`source/TelcoVoiceManager/telcovoicemgr_ssp_main.c`].
 
-**Dependencies.** The makefiles declare the libraries. The data-model layer links `-lccsp_common`,
+**Dependencies:** The makefiles declare the libraries. The data-model layer links `-lccsp_common`,
 `-ljson_hal_client`, `-ljson-c`, `-lcjson`, `-lrbus` and `-lpthread`
 [`source/TR-181/middle_layer_src/Makefile.am`]; the shared integration layer additionally links
 `syscfg`, `sysevent`, `utapi`, `utctx`, `hal_platform`, `webconfig_framework`, `msgpackc`, `avro`,
-`uuid`, `trower-base64` and `libparodus`
-[`source/TR-181/integration_src.shared/Makefile.am`]; the executable links `-lccsp_common`,
-`-lrdkloggers`, `-lsyscfg`, `-lsysevent`, `-lwebconfig_framework` and `-lpthread`
-[`source/TelcoVoiceManager/Makefile.am`].
+`uuid`, `trower-base64` and `libparodus` [`source/TR-181/integration_src.shared/Makefile.am`]; the
+executable links `-lccsp_common`, `-lrdkloggers`, `-lsyscfg`, `-lsysevent`, `-lwebconfig_framework`
+and `-lpthread` [`source/TelcoVoiceManager/Makefile.am`].
 [Build Requirements](docs/pages/halSpec.md#build-requirements) states which `json-c` a production
 build must link.
 
@@ -244,26 +232,26 @@ Three defects affect a caller of this component;
 [`docs/pages/halSpecDetailed.md`](docs/pages/halSpecDetailed.md#contract-defects) carries the
 schema-level inventory.
 
-1. **The HAL initialization write uses a path the shipped schemas would reject.** The `HALINIT` macro
-   is `"Devices.Services.VoiceHalInit"` — plural `Devices.` —
+1. **Initialization Write:** The HAL initialization write uses a path the shipped schemas would
+   reject. The `HALINIT` macro is `"Devices.Services.VoiceHalInit"` — plural `Devices.` —
    [`source/TR-181/middle_layer_src/telcovoicemgr_dml_hal.c`], while both schemas constrain
-   `servicesVoiceHalInit` to `^Device\.Services\.VoiceHalInit$`. A server validating strictly against
-   its schema rejects the initialization write this component sends; see
+   `servicesVoiceHalInit` to `^Device\.Services\.VoiceHalInit$`. A server validating strictly
+   against its schema rejects the initialization write this component sends; see
    [Initialization and Startup](docs/pages/halSpec.md#initialization-and-startup).
-2. **The configured schema path matches neither shipped filename.** `telcovoice_manager_conf.json`
-   names `/etc/rdk/schemas/telcovoice_hal_schema.json`, and this repository ships
-   `telcovoice_hal_schema_v1.json` and `telcovoice_hal_schema_v2.json`. The packaging or provisioning
-   layer installs one variant at that path, and nothing on the wire distinguishes the two — both
-   declare the same module name and `schemaVersion` — so a deployment must ensure the server's schema
-   matches the manager's `DatamodelVersion`; see
+2. **Configured Schema Path:** The configured schema path matches neither shipped filename.
+   `telcovoice_manager_conf.json` names `/etc/rdk/schemas/telcovoice_hal_schema.json`, and this
+   repository ships `telcovoice_hal_schema_v1.json` and `telcovoice_hal_schema_v2.json`. The
+   packaging or provisioning layer installs one variant at that path, and nothing on the wire
+   distinguishes the two — both declare the same module name and `schemaVersion` — so a deployment
+   must ensure the server's schema matches the manager's `DatamodelVersion`; see
    [Optional Components](docs/pages/halSpec.md#optional-components).
-3. **`deleteObject` is not usable under either shipped schema.** Its payload definition carries an
-   empty `anyOf` array in both files, which no message can satisfy, and the component's own delete
-   path, `TelcoVoiceMgrHal_DelParam`, is unreachable as shipped, because `create_json_request_message`
-   builds only get and set requests and returns `NULL` for a delete; see
-   [API Surface](docs/pages/halSpec.md#api-surface). The unrelated local C function `deleteObject`
-   [`source/TR-181/integration_src.shared/telcovoicemgr_dml_json_save.c`] removes an item from the
-   local configuration file and sends nothing over the HAL.
+3. **Object Deletion:** `deleteObject` is not usable under either shipped schema. Its payload
+   definition carries an empty `anyOf` array in both files, which no message can satisfy, and the
+   component's own delete path, `TelcoVoiceMgrHal_DelParam`, is unreachable as shipped, because
+   `create_json_request_message` builds only get and set requests and returns `NULL` for a delete;
+   see [API Surface](docs/pages/halSpec.md#api-surface). The unrelated local C function
+   `deleteObject` [`source/TR-181/integration_src.shared/telcovoicemgr_dml_json_save.c`] removes an
+   item from the local configuration file and sends nothing over the HAL.
 
 ## Contributing
 
